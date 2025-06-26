@@ -6,7 +6,7 @@ import lombok.*;
 
 
 @Entity
-@Table(name="restaurant_tables")
+@Table(name = "restaurant_tables")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,12 +17,15 @@ public class RestaurantTable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name="restaurant_table_number", nullable = false, unique = true, length = 10)
+    @Column(name = "restaurant_table_number", nullable = false, unique = true, length = 10)
     private Integer tableNumber;
 
     @Enumerated(EnumType.STRING)
-    @Column(name="status",nullable = false)
+    @Column(name = "status", nullable = false)
     private RestaurantTableStatus status;
 
+    public void updateStatus(RestaurantTableStatus newStatus) {
+        this.status = newStatus;
+    }
 
 }
