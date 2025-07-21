@@ -88,5 +88,85 @@ public class OrderService {
         return orderRepository.findById(id);
     }
 
+    //수량 증감
+    @Transactional
+    public Order addItemsToOrder(Long orderId, Map<Long, Integer> menuItemsMap) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID" + orderId));
+
+        //여기서 status canceled 가 없으면 주문 삭제 후에도 add 가 되는지  test 해봐야 함
+        if (order.getStatus() == OrderStatus.COMPLETED) {
+            throw new IllegalArgumentException("Cannot add items to a completed or canceled order");
+        }
+
+        if (menuItemsMap == null || menuItemsMap.isEmpty()) {
+            throw new IllegalArgumentException("No items to add");
+        }
+
+        int addedPrice = 0;
+        for (Map.Entry<Long, Integer> entry : menuItemsMap.entrySet()) {
+            Long menuId = entry.getKey();
+            Integer quantity = entry.getValue();
+
+            Menu menu = menuRepository.findById(menuId)
+                    .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID: " + menuId));
+            if (!menu.getIsAvailable() || quantity <= 0) {
+                throw new IllegalIdentifierException("Invalid menu item or quantity.");
+            }
+
+            OrderItem newOrderItem = OrderItem.builder()
+                    .menu(menu)
+                    .quantity(quantity)
+                    .itemPrice(menu.getPrice())
+                    .status(OrderItemStatus.IN_COOKING)
+                    .build();
+
+            order.addOrderItem(newOrderItem);
+            addedPrice += (quantity * menu.getPrice());
+        }
+
+        order.setTotalPrice(order.getTotalPrice() + addedPrice);
+        return orderRepository.save(order);
+    }
+
+    @Transactional
+    public Order removeOrderItem(Long orderId, Long orderItemId){
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(()->new IllegalArgumentException("Order not found with ID: "+ orderId));
+
+        if (order.getStatus() == OrderStatus.COMPLETED){
+            throw new IllegalArgumentException("Cannot remove items from a completed");
+        }
+
+        OrderItem itemToRemove = order.getOrderItems().stream()
+                .filter(item -> item.getId().equals(orderItemId))
+                .findFirst()
+                .orElseThrow(()-> new IllegalArgumentException("OrderItem not found with ID: " + orderItemId));
+
+        order.removeOrderItem(itemToRemove);
+        order.calculateTotalPrice();
+
+        return orderRepository.save(order);
+    }
+
+    @Transactional
+    public Order cancelOrder(Long orderId){
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(()-> new IllegalArgumentException("Order not found with ID: " + orderId));
+
+        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED){
+            throw new IllegalArgumentException("Cannot cancel a completed order.");
+        }
+
+        order.setStatus(OrderStatus.CANCELED);
+        order.getOrderItems().forEach(item -> item.setStatus(OrderItemStatus.CANCELED));
+
+        RestaurantTable restaurantTable = order.getTable();
+        restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
+
+        return orderRepository.save(order);
+    }
+
+
 
 }
