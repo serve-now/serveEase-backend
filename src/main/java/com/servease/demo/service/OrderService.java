@@ -130,18 +130,18 @@ public class OrderService {
     }
 
     @Transactional
-    public Order removeOrderItem(Long orderId, Long orderItemId){
+    public Order removeOrderItem(Long orderId, Long orderItemId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(()->new IllegalArgumentException("Order not found with ID: "+ orderId));
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
 
-        if (order.getStatus() == OrderStatus.COMPLETED){
+        if (order.getStatus() == OrderStatus.COMPLETED) {
             throw new IllegalArgumentException("Cannot remove items from a completed");
         }
 
         OrderItem itemToRemove = order.getOrderItems().stream()
                 .filter(item -> item.getId().equals(orderItemId))
                 .findFirst()
-                .orElseThrow(()-> new IllegalArgumentException("OrderItem not found with ID: " + orderItemId));
+                .orElseThrow(() -> new IllegalArgumentException("OrderItem not found with ID: " + orderItemId));
 
         order.removeOrderItem(itemToRemove);
         order.calculateTotalPrice();
@@ -150,11 +150,11 @@ public class OrderService {
     }
 
     @Transactional
-    public Order cancelOrder(Long orderId){
+    public Order cancelOrder(Long orderId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(()-> new IllegalArgumentException("Order not found with ID: " + orderId));
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
 
-        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED){
+        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
             throw new IllegalArgumentException("Cannot cancel a completed order.");
         }
 
@@ -167,6 +167,25 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
+    @Transactional
+    public Order udpateOrderStatus(Long orderId, OrderStatus newStatus) {
+        Order order = getOrderById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+
+        order.setStatus(newStatus);
+
+        if (newStatus == OrderStatus.COMPLETED) {
+            RestaurantTable restaurantTable = order.getTable();
+            restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
+        }
+
+        if (newStatus == OrderStatus.CANCELED){
+            RestaurantTable restaurantTable = order.getTable();
+            restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
+        }
+
+        return orderRepository.save(order);
+    }
 
 
 }
