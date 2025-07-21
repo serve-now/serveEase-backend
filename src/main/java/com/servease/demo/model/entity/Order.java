@@ -23,7 +23,7 @@ public class Order {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "table_id", nullable = false)
-    private RestaurantTable table;
+    private RestaurantTable restaurantTable;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -31,6 +31,9 @@ public class Order {
 
     @Column(name = "total_price", nullable = false)
     private Integer totalPrice;
+
+    @Column(name = "is_paid", nullable = false)
+    private boolean isPaid = false;
 
     @CreationTimestamp
     @Column(name = "order_time", nullable = false)
