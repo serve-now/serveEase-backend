@@ -54,4 +54,32 @@ public class MenuService {
         menu.setIsAvailable(isAvailable);
         return menuRepository.save(menu);
     }
+
+    @Transactional
+
+    public Menu updateMenu(Long id, String name, Integer price, String category, Boolean isAvailable){
+        Menu menu = menuRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Menu not found with ID : " + id));
+
+        //여기서 updateMenu인데, 이미 menu 이름이 있는지 찾는 경우에도 findById ?
+        if (!menu.getName().equals(name) && menuRepository.findByName(name).isPresent()){
+            throw new IllegalArgumentException("Menu with name" + name + "already exists");
+        }
+
+        menu.setName(name);
+        menu.setPrice(price);
+        menu.setCategory(category);
+        menu.setIsAvailable(isAvailable);
+
+        return menuRepository.save(menu);
+    }
+
+    @Transactional
+    public void deleteMenu(Long id){
+        if (!menuRepository.existsById(id)) {
+            throw new IllegalArgumentException("Menu not found with ID" + id);
+        }
+        menuRepository.deleteById(id);
+    }
+
 }
