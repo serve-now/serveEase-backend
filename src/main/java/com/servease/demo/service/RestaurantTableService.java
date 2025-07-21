@@ -46,7 +46,7 @@ public class RestaurantTableService {
     @Transactional
     public RestaurantTable updateTableStatus(Long id, RestaurantTableStatus newStatus) {
         RestaurantTable table = restaurantTableRepository.findById(id)
-                .orElseThrow(()-> new IllegalArgumentException("Table not found with ID:" + id));
+                .orElseThrow(() -> new IllegalArgumentException("Table not found with ID:" + id));
         table.updateStatus(newStatus);
         return restaurantTableRepository.save(table);
     }

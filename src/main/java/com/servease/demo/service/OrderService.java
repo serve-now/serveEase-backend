@@ -179,12 +179,36 @@ public class OrderService {
             restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
         }
 
-        if (newStatus == OrderStatus.CANCELED){
+        if (newStatus == OrderStatus.CANCELED) {
             RestaurantTable restaurantTable = order.getTable();
             restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
         }
 
         return orderRepository.save(order);
+    }
+
+    public Order updateOrderItemStatus(Long orderId, Long orderItemId, OrderItemStatus newStatus) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+
+        //특정 주문 항목을 찾아서 상태를 변경합니다.
+        OrderItem targetItem = order.getOrderItems().stream()
+                .filter(item -> item.getId().equals(orderItemId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("OrderItem not found with ID: " + orderId));
+
+        targetItem.setStatus(newStatus);
+
+        //모든 음식이 다 서빙되었는지 status 변경 있을 때마다 확인
+        boolean allItemServed = order.getOrderItems().stream()
+                .allMatch(item -> item.getStatus() == OrderItemStatus.SERVED);
+
+        //그렇다면 orderStatus 를 'COMPLETE' 로 변경
+        if (allItemServed) {
+            order.setStatus(OrderStatus.COMPLETED);
+        }
+        return orderRepository.save(order);
+
     }
 
 
