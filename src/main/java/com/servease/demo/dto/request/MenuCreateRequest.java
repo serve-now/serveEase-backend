@@ -1,4 +1,4 @@
-package com.servease.demo.dto;
+package com.servease.demo.dto.request;
 
 import lombok.*;
 

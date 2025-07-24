@@ -1,7 +1,8 @@
 package com.servease.demo.service;
 
-import com.servease.demo.dto.MenuCreateRequest;
-import com.servease.demo.dto.MenuResponse;
+import com.servease.demo.dto.request.MenuCreateRequest;
+import com.servease.demo.dto.response.MenuResponse;
+import com.servease.demo.dto.request.MenuUpdateRequest;
 import com.servease.demo.model.entity.Menu;
 import com.servease.demo.repository.MenuRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -18,14 +20,14 @@ public class MenuService {
     private final MenuRepository menuRepository;
 
     @Autowired
-    public MenuService(MenuRepository menuRepository){
+    public MenuService(MenuRepository menuRepository) {
         this.menuRepository = menuRepository;
     }
 
     @Transactional
     public MenuResponse createMenu(MenuCreateRequest request) {
-        if(menuRepository.findByName(request.getName()).isPresent()){
-            throw new IllegalArgumentException("Menu with name" + request.getName() +"already exists.");
+        if (menuRepository.findByName(request.getName()).isPresent()) {
+            throw new IllegalArgumentException("Menu with name" + request.getName() + "already exists.");
         }
 
         Menu newMenu = Menu.builder()
@@ -39,51 +41,60 @@ public class MenuService {
         return MenuResponse.fromEntity(savedMenu);
     }
 
-    public List<Menu> getAllMenus(){
-        return menuRepository.findAll();
+    public List<MenuResponse> getAllMenus() {
+        List<Menu> menus = menuRepository.findAll();
+        return menus.stream()
+                .map(MenuResponse::fromEntity)
+                .collect(Collectors.toList());
     }
 
-    public List<Menu> getAvailableMenus(){
-        return menuRepository.findByIsAvailableTrue();
+    public List<MenuResponse> getAvailableMenus() {
+        List<Menu> menus = menuRepository.findByIsAvailableTrue();
+        return menus.stream()
+                .map(MenuResponse::fromEntity)
+                .collect(Collectors.toList());
     }
 
-    public Optional<Menu> getMenuById(Long id){
-        return menuRepository.findById(id);
+    public Optional<MenuResponse> getMenuById(Long id) {
+        Optional<Menu> menuOptional = menuRepository.findById(id);
+        return menuOptional.map(MenuResponse::fromEntity);
     }
 
     @Transactional
-    public Menu updateMenuAvailability(Long id, Boolean isAvailable){
-        Menu menu = menuRepository.findById(id)
-                .orElseThrow(()-> new IllegalArgumentException("Menu not found with ID: " + id));
-        menu.setIsAvailable(isAvailable);
-        return menuRepository.save(menu);
+    public MenuResponse updateMenuAvailability(Long menuId, MenuUpdateRequest request) {
+        Menu menu = menuRepository.findById(menuId)
+                .orElseThrow(() -> new IllegalArgumentException("Menu not found with ID: " + menuId));
+        menu.setIsAvailable(request.isAvailable());
+        Menu updatedMenu = menuRepository.save(menu);
+        return MenuResponse.fromEntity(updatedMenu);
     }
 
     @Transactional
 
-    public Menu updateMenu(Long id, String name, Integer price, String category, Boolean isAvailable){
-        Menu menu = menuRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Menu not found with ID : " + id));
+    public MenuResponse updateMenu(Long menuId, MenuUpdateRequest request) {
+        Menu menu = menuRepository.findById(menuId)
+                .orElseThrow(() -> new IllegalArgumentException("Menu not found with ID : " + menuId));
 
         //여기서 updateMenu인데, 이미 menu 이름이 있는지 찾는 경우에도 findById ?
-        if (!menu.getName().equals(name) && menuRepository.findByName(name).isPresent()){
-            throw new IllegalArgumentException("Menu with name" + name + "already exists");
+        if (!menu.getName().equals(request.getName()) && menuRepository.findByName(request.getName()).isPresent()) {
+            throw new IllegalArgumentException("Menu with name" + request.getName() + "already exists");
         }
 
-        menu.setName(name);
-        menu.setPrice(price);
-        menu.setCategory(category);
-        menu.setIsAvailable(isAvailable);
+        menu.setName(request.getName());
+        menu.setPrice(request.getPrice());
+        menu.setCategory(request.getCategory());
+        menu.setIsAvailable(request.isAvailable());
 
-        return menuRepository.save(menu);
+        Menu updatedMenu = menuRepository.save(menu);
+        return MenuResponse.fromEntity(updatedMenu);
     }
 
     @Transactional
-    public void deleteMenu(Long id){
-        if (!menuRepository.existsById(id)) {
-            throw new IllegalArgumentException("Menu not found with ID" + id);
+    public void deleteMenu(Long menuId) {
+        if (!menuRepository.existsById(menuId)) {
+            throw new IllegalArgumentException("Menu not found with ID " + menuId);
         }
-        menuRepository.deleteById(id);
+        menuRepository.deleteById(menuId);
     }
 
 }
