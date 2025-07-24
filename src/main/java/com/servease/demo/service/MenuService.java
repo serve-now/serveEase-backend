@@ -1,5 +1,7 @@
 package com.servease.demo.service;
 
+import com.servease.demo.dto.MenuCreateRequest;
+import com.servease.demo.dto.MenuResponse;
 import com.servease.demo.model.entity.Menu;
 import com.servease.demo.repository.MenuRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,18 +23,20 @@ public class MenuService {
     }
 
     @Transactional
-    public Menu createMenu(String name, Integer price, String category, Boolean isAvailable) {
-        if(menuRepository.findByName(name).isPresent()){
-            throw new IllegalArgumentException("Menu with name" + name +"already exists.");
+    public MenuResponse createMenu(MenuCreateRequest request) {
+        if(menuRepository.findByName(request.getName()).isPresent()){
+            throw new IllegalArgumentException("Menu with name" + request.getName() +"already exists.");
         }
 
         Menu newMenu = Menu.builder()
-                .name(name)
-                .price(price)
-                .category(category)
-                .isAvailable(isAvailable)
+                .name(request.getName())
+                .price(request.getPrice())
+                .category(request.getCategory())
+                .isAvailable(request.isAvailable())
                 .build();
-        return menuRepository.save(newMenu);
+
+        Menu savedMenu = menuRepository.save(newMenu);
+        return MenuResponse.fromEntity(savedMenu);
     }
 
     public List<Menu> getAllMenus(){
