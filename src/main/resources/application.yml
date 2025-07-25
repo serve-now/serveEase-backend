@@ -1,0 +1,16 @@
+# src/main/resources/application.yml (모든 환경에 기본으로 적용)
+
+spring:
+  profiles:
+    active: dev
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+#        format_sql: true
+        dialect: org.hibernate.dialect.MariaDBDialect
+server:
+  port: 8080

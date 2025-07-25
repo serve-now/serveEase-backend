@@ -24,6 +24,7 @@ public class MenuService {
         this.menuRepository = menuRepository;
     }
 
+    //TODO 에러코드 전체 500으로 내려감
     @Transactional
     public MenuResponse createMenu(MenuCreateRequest request) {
         if (menuRepository.findByName(request.getName()).isPresent()) {
