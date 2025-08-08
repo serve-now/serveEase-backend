@@ -9,7 +9,7 @@ import lombok.*;
 @Builder
 public class RestaurantTableResponse {
     private Long id;
-    private Integer tableNumber;
+    private Integer restaurantTableNumber;
     private RestaurantTableStatus status;
 
     public static RestaurantTableResponse fromEntity(RestaurantTable restaurantTable){
@@ -19,7 +19,7 @@ public class RestaurantTableResponse {
 
         return RestaurantTableResponse.builder()
                 .id(restaurantTable.getId())
-                .tableNumber(restaurantTable.getTableNumber())
+                .restaurantTableNumber(restaurantTable.getTableNumber())
                 .status(restaurantTable.getStatus())
                 .build();
     }

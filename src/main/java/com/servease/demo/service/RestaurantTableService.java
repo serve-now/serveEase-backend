@@ -1,5 +1,6 @@
 package com.servease.demo.service;
 
+import com.servease.demo.dto.response.RestaurantTableResponse;
 import com.servease.demo.model.entity.RestaurantTable;
 import com.servease.demo.model.enums.RestaurantTableStatus;
 import com.servease.demo.repository.RestaurantTableRepository;
@@ -8,7 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -22,7 +23,7 @@ public class RestaurantTableService {
     }
 
     @Transactional
-    public RestaurantTable createTable(Integer tableNumber) {
+    public RestaurantTableResponse createTable(Integer tableNumber) {
         if (restaurantTableRepository.findByTableNumber(tableNumber).isPresent()) {
             throw new IllegalArgumentException("Table number " + tableNumber + "already Exists");
         }
@@ -32,15 +33,20 @@ public class RestaurantTableService {
                 .status(RestaurantTableStatus.EMPTY)
                 .build();
 
-        return restaurantTableRepository.save(newTable);
+        RestaurantTable savedTable = restaurantTableRepository.save(newTable);
+        return RestaurantTableResponse.fromEntity(savedTable);
     }
 
-    public Optional<RestaurantTable> getTableById(Long id) {
-        return restaurantTableRepository.findById(id);
+    public RestaurantTableResponse getTableById(Long id) {
+        return restaurantTableRepository.findById(id)
+                .map(RestaurantTableResponse::fromEntity)
+                .orElseThrow(() -> new IllegalArgumentException("Table not found with ID: " + id));
     }
 
-    public List<RestaurantTable> getAllTables() {
-        return restaurantTableRepository.findAll();
+    public List<RestaurantTableResponse> getAllTables() {
+        return restaurantTableRepository.findAll().stream()
+                .map(RestaurantTableResponse::fromEntity)
+                .collect(Collectors.toList());
     }
 
     @Transactional
