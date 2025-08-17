@@ -35,7 +35,7 @@ public class MenuService {
                 .name(request.getName())
                 .price(request.getPrice())
                 .category(request.getCategory())
-                .isAvailable(request.isAvailable())
+                .available(request.isAvailable())
                 .build();
 
         Menu savedMenu = menuRepository.save(newMenu);
@@ -50,7 +50,7 @@ public class MenuService {
     }
 
     public List<MenuResponse> getAvailableMenus() {
-        List<Menu> menus = menuRepository.findByIsAvailableTrue();
+        List<Menu> menus = menuRepository.findByAvailableIsTrue();
         return menus.stream()
                 .map(MenuResponse::fromEntity)
                 .collect(Collectors.toList());
@@ -61,17 +61,16 @@ public class MenuService {
         return menuOptional.map(MenuResponse::fromEntity);
     }
 
-    @Transactional
-    public MenuResponse updateMenuAvailability(Long menuId, MenuUpdateRequest request) {
-        Menu menu = menuRepository.findById(menuId)
-                .orElseThrow(() -> new IllegalArgumentException("Menu not found with ID: " + menuId));
-        menu.setIsAvailable(request.isAvailable());
-        Menu updatedMenu = menuRepository.save(menu);
-        return MenuResponse.fromEntity(updatedMenu);
-    }
+//    @Transactional
+//    public MenuResponse updateMenuAvailability(Long menuId, MenuUpdateRequest request) {
+//        Menu menu = menuRepository.findById(menuId)
+//                .orElseThrow(() -> new IllegalArgumentException("Menu not found with ID: " + menuId));
+//        menu.setAvailable(request.setAvailable());
+//        Menu updatedMenu = menuRepository.save(menu);
+//        return MenuResponse.fromEntity(updatedMenu);
+//    }
 
     @Transactional
-
     public MenuResponse updateMenu(Long menuId, MenuUpdateRequest request) {
         Menu menu = menuRepository.findById(menuId)
                 .orElseThrow(() -> new IllegalArgumentException("Menu not found with ID : " + menuId));
@@ -84,7 +83,7 @@ public class MenuService {
         menu.setName(request.getName());
         menu.setPrice(request.getPrice());
         menu.setCategory(request.getCategory());
-        menu.setIsAvailable(request.isAvailable());
+        menu.setAvailable(request.isAvailable());
 
         Menu updatedMenu = menuRepository.save(menu);
         return MenuResponse.fromEntity(updatedMenu);

@@ -24,7 +24,7 @@ public class Menu {
     @Column(name = "category", length = 50)
     private String category;
 
-    @Column(name = "is_available", nullable = false)
-    private Boolean isAvailable;
+    @Column(name = "available", nullable = false)
+    private boolean available;
 
 }
