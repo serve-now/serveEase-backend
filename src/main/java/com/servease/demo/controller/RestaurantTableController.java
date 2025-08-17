@@ -1,6 +1,7 @@
 package com.servease.demo.controller;
 
 import com.servease.demo.dto.request.RestaurantTableCreateRequest;
+import com.servease.demo.dto.request.RestaurantTableStatusUpdateRequest;
 import com.servease.demo.dto.response.RestaurantTableResponse;
 import com.servease.demo.service.RestaurantTableService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,4 +35,15 @@ public class RestaurantTableController {
         return ResponseEntity.status(HttpStatus.CREATED).body(newTable);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<RestaurantTableResponse> updateTableStatus(@PathVariable Long id, @RequestBody RestaurantTableStatusUpdateRequest request) {
+        RestaurantTableResponse updatedTable = restaurantTableService.updateTableStatus(id, request.getStatus());
+        return ResponseEntity.ok(updatedTable);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTable(@PathVariable Long id) {
+        restaurantTableService.deleteTable(id);
+        return ResponseEntity.noContent().build();
+    }
 }
