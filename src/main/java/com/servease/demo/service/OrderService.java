@@ -1,5 +1,8 @@
 package com.servease.demo.service;
 
+import com.servease.demo.dto.request.OrderCreateRequest;
+import com.servease.demo.dto.request.OrderItemRequest;
+import com.servease.demo.dto.response.OrderResponse;
 import com.servease.demo.model.entity.Menu;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.OrderItem;
@@ -35,48 +38,44 @@ public class OrderService {
     }
 
     @Transactional
-    public Order createOrder(Long restaurantTableId, Map<Long, Integer> menuItemsMap) {
-        RestaurantTable restaurantTable = restaurantTableRepository.findById(restaurantTableId)
-                .orElseThrow(() -> new IllegalArgumentException("Table not found with ID: " + restaurantTableId));
-        restaurantTable.updateStatus(RestaurantTableStatus.USING);
+    public OrderResponse createOrder(OrderCreateRequest request) {
+        Optional<RestaurantTable> optionalTargetTable = restaurantTableRepository.findByTableNumber(request.getRestaurantTableNumber());
+        RestaurantTable targetTable = optionalTargetTable.orElseThrow(
+                () -> new IllegalArgumentException("Table not exists : " + request.getRestaurantTableNumber())
+        );
 
         //새로운 Order 엔티티 생성
         Order newOrder = Order.builder()
-                .restaurantTable(restaurantTable)
+                .restaurantTable(targetTable)
                 .status(OrderStatus.RECEIVED)
                 .orderTime(LocalDateTime.now())
                 .isPaid(false)
                 .build();
 
-        if (menuItemsMap == null || menuItemsMap.isEmpty()) {
-            throw new IllegalArgumentException("Order must contain at least 1 menu");
-        }
-
         int totalOrderPrice = 0;
-        for (Map.Entry<Long, Integer> entry : menuItemsMap.entrySet()) {
-            Long menuId = entry.getKey();
-            Integer quantity = entry.getValue();
 
-            Menu menu = menuRepository.findById(menuId)
-                    .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID" + menuId));
+        //DTO에서 orderItems 리스트 순회해서 OrderItem 엔티티 생성
+        for (OrderItemRequest itemRequest : request.getOrderItems()) {
+            Menu menu = menuRepository.findById(itemRequest.getMenuId())
+                    .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID" + itemRequest.getMenuId()));
 
-            if (!menu.getIsAvailable() || quantity <= 0) {
+            if (!menu.isAvailable() || itemRequest.getQuantity() <= 0) {
                 throw new IllegalArgumentException("Invalid menu item or quantity");
             }
 
             OrderItem orderItem = OrderItem.builder()
                     .menu(menu)
-                    .quantity(quantity)
+                    .quantity(itemRequest.getQuantity())
                     .itemPrice(menu.getPrice())
                     .status(OrderItemStatus.IN_COOKING)
                     .build();
 
             newOrder.addOrderItem(orderItem);
-            totalOrderPrice += (quantity * menu.getPrice());
+            totalOrderPrice += (itemRequest.getQuantity() * menu.getPrice());
         }
 
-        newOrder.setTotalPrice(totalOrderPrice);
-        return orderRepository.save(newOrder);
+        Order savedOrder = orderRepository.save(newOrder);
+        return OrderResponse.fromEntity(savedOrder);
     }
 
 
@@ -116,7 +115,7 @@ public class OrderService {
 
             Menu menu = menuRepository.findById(menuId)
                     .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID: " + menuId));
-            if (!menu.getIsAvailable() || quantity <= 0) {
+            if (!menu.isAvailable() || quantity <= 0) {
                 throw new IllegalArgumentException("Invalid menu item or quantity.");
             }
 
@@ -133,116 +132,6 @@ public class OrderService {
 
         order.setTotalPrice(order.getTotalPrice() + addedPrice);
         return orderRepository.save(order);
-    }
-
-    @Transactional
-    public Order removeOrderItem(Long orderId, Long orderItemId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
-
-        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new IllegalArgumentException("Cannot remove items from a completed or canceled order");
-        }
-
-        OrderItem itemToRemove = order.getOrderItems().stream()
-                .filter(item -> item.getId().equals(orderItemId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("OrderItem not found with ID: " + orderItemId));
-
-        order.removeOrderItem(itemToRemove);
-        order.calculateTotalPrice();
-
-        return orderRepository.save(order);
-    }
-
-    @Transactional
-    public Order cancelOrder(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
-
-        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new IllegalArgumentException("Cannot cancel a completed order or already canceled order.");
-        }
-
-        order.setStatus(OrderStatus.CANCELED);
-        order.getOrderItems().forEach(item -> item.setStatus(OrderItemStatus.CANCELED));
-
-        RestaurantTable restaurantTable = order.getRestaurantTable();
-        restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
-
-        return orderRepository.save(order);
-    }
-
-    @Transactional
-    public Order updateOrderStatus(Long orderId, OrderStatus newStatus) {
-
-        if (newStatus == OrderStatus.CANCELED) {
-            return cancelOrder(orderId);
-        }
-
-        Order order = getOrderById(orderId)
-                .orElseThrow(()-> new IllegalArgumentException("Order not found with ID: " + orderId));
-
-        order.setStatus(newStatus);
-        return orderRepository.save(order);
-    }
-
-
-    @Transactional
-    public Order updateOrderItemStatus(Long orderId, Long orderItemId, OrderItemStatus newStatus) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
-
-        //특정 주문 항목을 찾아서 상태를 변경합니다.
-        OrderItem targetItem = order.getOrderItems().stream()
-                .filter(item -> item.getId().equals(orderItemId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("OrderItem not found with ID: " + orderItemId));
-
-        targetItem.setStatus(newStatus);
-
-        //모든 음식이 다 서빙되었는지 status 변경 있을 때마다 확인
-        boolean allItemServed = order.getOrderItems().stream()
-                .allMatch(item -> item.getStatus() == OrderItemStatus.SERVED);
-
-        //그렇다면 orderStatus 를 'COMPLETE' 로 변경
-        if (allItemServed) {
-            order.setStatus(OrderStatus.COMPLETED);
-        }
-        return orderRepository.save(order);
-
-    }
-
-    //선결제 하는 경우도 있으므로 payment 와 분리
-    @Transactional
-    public Order completePayment(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID :" + orderId));
-
-        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new IllegalArgumentException("Order cannot be completed, current status : " + order.getStatus());
-        }
-
-        if (order.isPaid()) {
-            throw new IllegalArgumentException("Order has already been paid.");
-        }
-
-        order.setPaid(true);
-
-        return orderRepository.save(order);
-    }
-
-    @Transactional
-    public RestaurantTable checkoutTable(Long restaurantTableId) {
-        RestaurantTable restaurantTable = restaurantTableRepository.findById(restaurantTableId)
-                .orElseThrow(() -> new IllegalArgumentException("RestaurantTable not found with ID: " + restaurantTableId));
-
-        if (restaurantTable.getStatus() != RestaurantTableStatus.USING) {
-            throw new IllegalArgumentException("Table is not currently in use");
-        }
-
-        restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
-        return restaurantTableRepository.save(restaurantTable);
     }
 
 
