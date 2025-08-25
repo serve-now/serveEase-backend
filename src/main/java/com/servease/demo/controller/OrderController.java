@@ -32,9 +32,7 @@ public class OrderController {
 
     @GetMapping
     public ResponseEntity<List<OrderResponse>> getAllOrders (){
-        List<OrderResponse> orderResponses = orderService.getAllOrders().stream()
-                .map(OrderResponse::fromEntity)
-                .collect(Collectors.toList());
+        List<OrderResponse> orderResponses = orderService.getAllOrders();
 
         return ResponseEntity.ok(orderResponses);
     }
