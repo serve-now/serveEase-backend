@@ -3,6 +3,7 @@ package com.servease.demo.service;
 import com.servease.demo.dto.request.OrderCreateRequest;
 import com.servease.demo.dto.request.OrderItemRequest;
 import com.servease.demo.dto.response.OrderResponse;
+import com.servease.demo.dto.response.RestaurantTableResponse;
 import com.servease.demo.model.entity.Menu;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.OrderItem;
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -44,7 +46,6 @@ public class OrderService {
                 () -> new IllegalArgumentException("Table not exists : " + request.getRestaurantTableNumber())
         );
 
-        //새로운 Order 엔티티 생성
         Order newOrder = Order.builder()
                 .restaurantTable(targetTable)
                 .status(OrderStatus.RECEIVED)
@@ -54,7 +55,6 @@ public class OrderService {
 
         int totalOrderPrice = 0;
 
-        //DTO에서 orderItems 리스트 순회해서 OrderItem 엔티티 생성
         for (OrderItemRequest itemRequest : request.getOrderItems()) {
             Menu menu = menuRepository.findById(itemRequest.getMenuId())
                     .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID" + itemRequest.getMenuId()));
@@ -79,27 +79,31 @@ public class OrderService {
     }
 
 
-    public List<Order> getAllOrders() {
-        return orderRepository.findAll();
+    public List<OrderResponse> getAllOrders() {
+        return orderRepository.findAll().stream()
+                .map(OrderResponse::fromEntity)
+                .collect(Collectors.toList());
     }
 
-    public Optional<Order> getOrderById(Long id) {
-        return orderRepository.findById(id);
+    public Optional<OrderResponse> getOrderById(Long id) {
+        return orderRepository.findById(id).map(OrderResponse::fromEntity);
     }
 
 
-    public List<Order> getOrdersByRestaurantTableId(Long restaurantTableId) {
-        return orderRepository.findByRestaurantTableId(restaurantTableId);
+    public List<OrderResponse> getOrdersByRestaurantTableId(Long restaurantTableId) {
+        return orderRepository.findByRestaurantTableId(restaurantTableId).stream()
+                .map(OrderResponse::fromEntity)
+                .collect(Collectors.toList());
     }
 
 
     //수량 증감
     @Transactional
-    public Order addItemsToOrder(Long orderId, Map<Long, Integer> menuItemsMap) {
+    public OrderResponse addItemsToOrder(Long orderId, Map<Long, Integer> menuItemsMap) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found with ID" + orderId));
 
-        //여기서 status canceled 가 없으면 주문 삭제 후에도 add 가 되는지  test 해봐야 함
+        //여기서 status canceled 가 없으면 주문 삭제 후에도 add 가 되는지 test 해봐야 함
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
             throw new IllegalArgumentException("Cannot add items to a completed or canceled order");
         }
@@ -131,9 +135,118 @@ public class OrderService {
         }
 
         order.setTotalPrice(order.getTotalPrice() + addedPrice);
-        return orderRepository.save(order);
+        Order updatedOrder = orderRepository.save(order);
+        return OrderResponse.fromEntity(updatedOrder);
     }
 
+
+    @Transactional
+    public OrderResponse removeOrderItem(Long orderId, Long orderItemId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+        order.removeItemById(orderItemId);
+
+        Order updatedOrder = orderRepository.save(order);
+        return OrderResponse.fromEntity(updatedOrder);
+    }
+
+
+    @Transactional
+    public OrderResponse cancelOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+
+        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
+            throw new IllegalArgumentException("Cannot cancel a completed order or already canceled order.");
+        }
+
+        order.setStatus(OrderStatus.CANCELED);
+        order.getOrderItems().forEach(item -> item.setStatus(OrderItemStatus.CANCELED));
+
+        RestaurantTable restaurantTable = order.getRestaurantTable();
+        restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
+
+        Order canceledOrder = orderRepository.save(order);
+        return OrderResponse.fromEntity(canceledOrder);
+    }
+
+    @Transactional
+    public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
+
+        if (newStatus == OrderStatus.CANCELED) {
+            return cancelOrder(orderId);
+        }
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+
+        order.setStatus(newStatus);
+        Order updatedOrder = orderRepository.save(order);
+
+        return OrderResponse.fromEntity(updatedOrder);
+    }
+
+
+    @Transactional
+    public OrderResponse updateOrderItemStatus(Long orderId, Long orderItemId, OrderItemStatus newStatus) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+
+
+        OrderItem targetItem = order.getOrderItems().stream()
+                .filter(item -> item.getId().equals(orderItemId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("OrderItem not found with ID: " + orderItemId));
+
+        targetItem.setStatus(newStatus);
+
+        //모든 음식이 다 서빙되었는지 status 변경 있을 때마다 확인
+        boolean allItemServed = order.getOrderItems().stream()
+                .allMatch(item -> item.getStatus() == OrderItemStatus.SERVED);
+
+        //그렇다면 orderStatus 를 'COMPLETE' 로 변경
+        if (allItemServed) {
+            order.setStatus(OrderStatus.COMPLETED);
+        }
+
+        Order updatedOrder = orderRepository.save(order);
+        return OrderResponse.fromEntity(updatedOrder);
+    }
+
+    //선결제 하는 경우는 payment 와 분리
+    @Transactional
+    public OrderResponse completePayment(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID :" + orderId));
+
+        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
+            throw new IllegalArgumentException("Order cannot be completed, current status : " + order.getStatus());
+        }
+
+        if (order.isPaid()) {
+            throw new IllegalArgumentException("Order has already been paid.");
+        }
+
+        order.setPaid(true);
+        Order updatedOrder = orderRepository.save(order);
+
+        return OrderResponse.fromEntity(updatedOrder);
+    }
+
+    @Transactional
+    public RestaurantTableResponse checkoutTable(Long restaurantTableId) {
+        RestaurantTable restaurantTable = restaurantTableRepository.findById(restaurantTableId)
+                .orElseThrow(() -> new IllegalArgumentException("RestaurantTable not found with ID: " + restaurantTableId));
+
+        if (restaurantTable.getStatus() != RestaurantTableStatus.USING) {
+            throw new IllegalArgumentException("Table is not currently in use");
+        }
+
+        restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
+        RestaurantTable updatedTable = restaurantTableRepository.save(restaurantTable);
+
+        return RestaurantTableResponse.fromEntity(updatedTable);
+    }
 
 
 }
