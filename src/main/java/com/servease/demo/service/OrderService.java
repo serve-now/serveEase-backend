@@ -45,34 +45,41 @@ public class OrderService {
                 () -> new IllegalArgumentException("Table not exists : " + request.getRestaurantTableNumber())
         );
 
-        Order newOrder = Order.builder()
-                .restaurantTable(targetTable)
-                .status(OrderStatus.RECEIVED)
-                .orderTime(LocalDateTime.now())
-                .isPaid(false)
-                .build();
+        Optional<Order> activeOrderOpt = orderRepository.findByRestaurantTableIdAndIsPaidFalse(targetTable.getId());
 
-        for (OrderItemRequest itemRequest : request.getOrderItems()) {
-            Menu menu = menuRepository.findById(itemRequest.getMenuId())
-                    .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID" + itemRequest.getMenuId()));
-
-            if (!menu.isAvailable() || itemRequest.getQuantity() <= 0) {
-                throw new IllegalArgumentException("Invalid menu item or quantity");
-            }
-
-            OrderItem orderItem = OrderItem.builder()
-                    .menu(menu)
-                    .quantity(itemRequest.getQuantity())
-                    .itemPrice(menu.getPrice())
-                    .status(OrderItemStatus.IN_COOKING)
+        if(activeOrderOpt.isPresent()) {
+            Order activeOrder = activeOrderOpt.get();
+            return addItemsToOrder (activeOrder.getId(), request.getOrderItems());
+        } else {
+            Order newOrder = Order.builder()
+                    .restaurantTable(targetTable)
+                    .status(OrderStatus.RECEIVED)
+                    .orderTime(LocalDateTime.now())
+                    .isPaid(false)
                     .build();
 
-            newOrder.addOrderItem(orderItem);
-        }
+            for (OrderItemRequest itemRequest : request.getOrderItems()) {
+                Menu menu = menuRepository.findById(itemRequest.getMenuId())
+                        .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID" + itemRequest.getMenuId()));
 
-        newOrder.calculateTotalPrice();
-        Order savedOrder = orderRepository.save(newOrder);
-        return OrderResponse.fromEntity(savedOrder);
+                if (!menu.isAvailable() || itemRequest.getQuantity() <= 0) {
+                    throw new IllegalArgumentException("Invalid menu item or quantity");
+                }
+
+                OrderItem orderItem = OrderItem.builder()
+                        .menu(menu)
+                        .quantity(itemRequest.getQuantity())
+                        .itemPrice(menu.getPrice())
+                        .status(OrderItemStatus.IN_COOKING)
+                        .build();
+
+                newOrder.addOrderItem(orderItem);
+            }
+            newOrder.calculateTotalPrice();
+
+            Order savedOrder = orderRepository.save(newOrder);
+            return OrderResponse.fromEntity(savedOrder);
+        }
     }
 
 
