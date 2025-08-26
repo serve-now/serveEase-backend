@@ -1,6 +1,8 @@
 package com.servease.demo.controller;
 
 import com.servease.demo.dto.request.OrderCreateRequest;
+import com.servease.demo.dto.request.OrderItemRequest;
+import com.servease.demo.dto.request.OrderItemQuantityUpdateRequest;
 import com.servease.demo.dto.response.OrderResponse;
 import com.servease.demo.service.OrderService;
 import jakarta.validation.Valid;
@@ -10,7 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -33,8 +34,23 @@ public class OrderController {
     @GetMapping
     public ResponseEntity<List<OrderResponse>> getAllOrders (){
         List<OrderResponse> orderResponses = orderService.getAllOrders();
-
         return ResponseEntity.ok(orderResponses);
     }
+
+
+    // 새로운 메뉴 항목들을 주문에 추가
+    @PostMapping("/{orderId}/items")
+    public ResponseEntity<OrderResponse> addItemsToOrder(@PathVariable Long orderId, @RequestBody @Valid List<OrderItemRequest> orderItemRequests) {
+        OrderResponse updatedOrder = orderService.addItemsToOrder(orderId, orderItemRequests);
+        return ResponseEntity.ok(updatedOrder);
+    }
+
+    // 기존 주문 항목의 수량을 변경 (Update)
+    @PatchMapping("/{orderId}/items/{orderItemId}")
+    public ResponseEntity<OrderResponse> updateOrderItemQuantity( @PathVariable Long orderId, @PathVariable Long orderItemId, @RequestBody @Valid OrderItemQuantityUpdateRequest request) {
+        OrderResponse updatedOrder = orderService.updateOrderItemQuantity(orderId, orderItemId, request.getNewQuantity());
+        return ResponseEntity.ok(updatedOrder);
+    }
+
 
 }

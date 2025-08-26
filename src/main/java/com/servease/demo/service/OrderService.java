@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -97,45 +96,86 @@ public class OrderService {
 
     //수량 증감
     @Transactional
-    public OrderResponse addItemsToOrder(Long orderId, Map<Long, Integer> menuItemsMap) {
+    public OrderResponse addItemsToOrder(Long orderId, List<OrderItemRequest> itemRequests) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found with ID" + orderId));
 
         //여기서 status canceled 가 없으면 주문 삭제 후에도 add 가 되는지 test 해봐야 함
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new IllegalArgumentException("Cannot add items to a completed or canceled order");
+            throw new IllegalStateException("Cannot add items to a completed or canceled order");
         }
 
-        if (menuItemsMap == null || menuItemsMap.isEmpty()) {
+        if (itemRequests == null || itemRequests.isEmpty()) {
             throw new IllegalArgumentException("No items to add");
         }
 
-        int addedPrice = 0;
-        for (Map.Entry<Long, Integer> entry : menuItemsMap.entrySet()) {
-            Long menuId = entry.getKey();
-            Integer quantity = entry.getValue();
+        for (OrderItemRequest itemRequest : itemRequests) {
+            Menu menu = menuRepository.findById(itemRequest.getMenuId())
+                    .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID: " + itemRequest.getMenuId()));
 
-            Menu menu = menuRepository.findById(menuId)
-                    .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID: " + menuId));
-            if (!menu.isAvailable() || quantity <= 0) {
-                throw new IllegalArgumentException("Invalid menu item or quantity.");
+            if (!menu.isAvailable()) { // 수량 검증은 DTO의 @Min
+                throw new IllegalArgumentException(" Menu item " + menu.getName() + "is not available.");
             }
 
-            OrderItem newOrderItem = OrderItem.builder()
-                    .menu(menu)
-                    .quantity(quantity)
-                    .itemPrice(menu.getPrice())
-                    .status(OrderItemStatus.IN_COOKING)
-                    .build();
 
-            order.addOrderItem(newOrderItem);
-            addedPrice += (quantity * menu.getPrice());
+            //로직 개선...
+            //1. 기존 주문에 동일한 메뉴가 있는지 확인
+            Optional<OrderItem> existingItemOpt = order.getOrderItems().stream()
+                    .filter(item -> item.getMenu().getId().equals(itemRequest.getMenuId()))
+                    .findFirst();
+
+
+            //2. 이미 있다면 해당 수량만 업데이트
+            if(existingItemOpt.isPresent()){
+                OrderItem existingItem = existingItemOpt.get();
+                existingItem.setQuantity(existingItem.getQuantity() + itemRequest.getQuantity());
+            }
+            //3. 없다면 OrderItem 을 생성하여 주문에 추가
+            else {
+                OrderItem newOrderItem = OrderItem.builder()
+                        .menu(menu)
+                        .quantity(itemRequest.getQuantity())
+                        .itemPrice(menu.getPrice())
+                        .status(OrderItemStatus.IN_COOKING)
+                        .build();
+                order.addOrderItem(newOrderItem);
+            }
         }
 
-        order.setTotalPrice(order.getTotalPrice() + addedPrice);
+        order.calculateTotalPrice();
+
         Order updatedOrder = orderRepository.save(order);
         return OrderResponse.fromEntity(updatedOrder);
     }
+
+
+    //order 에서 수량만 변경
+    @Transactional
+    public OrderResponse updateOrderItemQuantity(Long orderId, Long orderItemId, int newQuantity) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+
+        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
+            throw new IllegalStateException("Cannot modify a completed or canceled order.");
+        }
+
+        OrderItem targetItem = order.getOrderItems().stream()
+                .filter(item -> item.getId().equals(orderItemId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("OrderItem with ID " + orderItemId + " not found in this order."));
+
+        if (newQuantity == 0) {
+            order.removeItemById(orderItemId);
+        } else {
+            targetItem.setQuantity(newQuantity);
+        }
+
+        order.calculateTotalPrice();
+
+        Order updatedOrder = orderRepository.save(order);
+        return OrderResponse.fromEntity(updatedOrder);
+    }
+
 
 
     @Transactional
