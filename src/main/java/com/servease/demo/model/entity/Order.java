@@ -63,7 +63,7 @@ public class Order {
 
     public void removeItemById(Long orderItemId){
         if (this.status == OrderStatus.COMPLETED || this.status == OrderStatus.CANCELED) {
-            throw new IllegalIdentifierException("Cannot remove items from a completed or canceled order.");
+            throw new IllegalStateException("Cannot remove items from a completed or canceled order.");
         }
 
         OrderItem itemToRemove = this.orderItems.stream()

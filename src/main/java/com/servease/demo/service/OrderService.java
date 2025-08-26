@@ -53,8 +53,6 @@ public class OrderService {
                 .isPaid(false)
                 .build();
 
-        int totalOrderPrice = 0;
-
         for (OrderItemRequest itemRequest : request.getOrderItems()) {
             Menu menu = menuRepository.findById(itemRequest.getMenuId())
                     .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID" + itemRequest.getMenuId()));
@@ -71,9 +69,9 @@ public class OrderService {
                     .build();
 
             newOrder.addOrderItem(orderItem);
-            totalOrderPrice += (itemRequest.getQuantity() * menu.getPrice());
         }
 
+        newOrder.calculateTotalPrice();
         Order savedOrder = orderRepository.save(newOrder);
         return OrderResponse.fromEntity(savedOrder);
     }
