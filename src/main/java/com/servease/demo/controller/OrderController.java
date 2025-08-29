@@ -26,10 +26,15 @@ public class OrderController {
     }
 
     @PostMapping
-    //create
     public ResponseEntity<OrderResponse> createOrder(@RequestBody @Valid OrderCreateRequest request) {
         OrderResponse orderResponse = orderService.createOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(orderResponse);
+    }
+
+    @PostMapping("/{orderId}/pay")
+    public ResponseEntity<OrderResponse> completePayment(@PathVariable Long orderId) {
+        OrderResponse paidOrder = orderService.completePayment(orderId);
+        return ResponseEntity.ok(paidOrder);
     }
 
     @GetMapping
@@ -38,6 +43,12 @@ public class OrderController {
         return ResponseEntity.ok(orderResponses);
     }
 
+    @GetMapping("/{orderId}")
+    public ResponseEntity<OrderResponse> getOrderById(@PathVariable Long id) {
+        return orderService.getOrderById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 
     // 새로운 메뉴 항목들을 주문에 추가
     @PostMapping("/{orderId}/items")
@@ -51,6 +62,13 @@ public class OrderController {
     public ResponseEntity<OrderResponse> updateOrderItemQuantity(@PathVariable Long orderId, @PathVariable Long orderItemId, @RequestBody @Valid OrderItemQuantityUpdateRequest request) {
         OrderResponse updatedOrder = orderService.updateOrderItemQuantity(orderId, orderItemId, request.getNewQuantity());
         return ResponseEntity.ok(updatedOrder);
+    }
+
+
+    @PatchMapping("/{orderId}/cancel")
+    public ResponseEntity<OrderResponse> cancelOrderById(@PathVariable Long orderId) {
+        OrderResponse canceledOrder = orderService.cancelOrder(orderId);
+        return ResponseEntity.ok(canceledOrder);
     }
 
 
