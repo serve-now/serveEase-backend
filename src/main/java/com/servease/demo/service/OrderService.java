@@ -305,5 +305,22 @@ public class OrderService {
         return RestaurantTableResponse.fromEntity(updatedTable);
     }
 
+    @Transactional
+    public void deleteAllOrdersByTable(Long tableId) {
+        RestaurantTable table = restaurantTableRepository.findById(tableId)
+                .orElseThrow(() -> new IllegalArgumentException("RestaurantTable not found with ID: " + tableId));
+        List<Order> ordersToCancel = orderRepository.findByRestaurantTableId(tableId);
+        if (ordersToCancel.isEmpty()) {
+            return;
+        }
+        for (Order order : ordersToCancel) {
+            if (order.getStatus() != OrderStatus.COMPLETED && order.getStatus() != OrderStatus.CANCELED) {
+                order.setStatus(OrderStatus.CANCELED);
+                order.getOrderItems().forEach(item -> item.setStatus(OrderItemStatus.CANCELED));
+            }
+        }
+
+        table.setStatus(RestaurantTableStatus.EMPTY);
+    }
 
 }
