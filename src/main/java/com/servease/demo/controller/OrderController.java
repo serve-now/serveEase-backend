@@ -4,6 +4,7 @@ import com.servease.demo.dto.request.OrderCreateRequest;
 import com.servease.demo.dto.request.OrderItemRequest;
 import com.servease.demo.dto.request.OrderItemQuantityUpdateRequest;
 import com.servease.demo.dto.response.OrderResponse;
+import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,14 +27,14 @@ public class OrderController {
 
     @PostMapping
     //create
-    public ResponseEntity<OrderResponse> createOrder(@RequestBody @Valid OrderCreateRequest request){
+    public ResponseEntity<OrderResponse> createOrder(@RequestBody @Valid OrderCreateRequest request) {
         OrderResponse orderResponse = orderService.createOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(orderResponse);
     }
 
     @GetMapping
-    public ResponseEntity<List<OrderResponse>> getAllOrders (){
-        List<OrderResponse> orderResponses = orderService.getAllOrders();
+    public ResponseEntity<List<OrderResponse>> getAllOrders(@RequestParam(required = false) OrderStatus status) {
+        List<OrderResponse> orderResponses = orderService.getAllOrders(status);
         return ResponseEntity.ok(orderResponses);
     }
 
@@ -47,7 +48,7 @@ public class OrderController {
 
     // 기존 주문 항목의 수량을 변경 (Update)
     @PatchMapping("/{orderId}/items/{orderItemId}")
-    public ResponseEntity<OrderResponse> updateOrderItemQuantity( @PathVariable Long orderId, @PathVariable Long orderItemId, @RequestBody @Valid OrderItemQuantityUpdateRequest request) {
+    public ResponseEntity<OrderResponse> updateOrderItemQuantity(@PathVariable Long orderId, @PathVariable Long orderItemId, @RequestBody @Valid OrderItemQuantityUpdateRequest request) {
         OrderResponse updatedOrder = orderService.updateOrderItemQuantity(orderId, orderItemId, request.getNewQuantity());
         return ResponseEntity.ok(updatedOrder);
     }

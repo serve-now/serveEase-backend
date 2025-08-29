@@ -40,51 +40,64 @@ public class OrderService {
 
     @Transactional
     public OrderResponse createOrder(OrderCreateRequest request) {
-        Optional<RestaurantTable> optionalTargetTable = restaurantTableRepository.findByTableNumber(request.getRestaurantTableNumber());
-        RestaurantTable targetTable = optionalTargetTable.orElseThrow(
-                () -> new IllegalArgumentException("Table not exists : " + request.getRestaurantTableNumber())
+        RestaurantTable initialTable = restaurantTableRepository.findByTableNumber(request.getRestaurantTableNumber()).orElseThrow(
+                () -> new IllegalArgumentException("Table number not exists : " + request.getRestaurantTableNumber())
         );
 
-        Optional<Order> activeOrderOpt = orderRepository.findByRestaurantTableIdAndIsPaidFalse(targetTable.getId());
+        RestaurantTable targetTable = restaurantTableRepository.findByIdWithLock(initialTable.getId())
+                .orElseThrow(()->new IllegalStateException("Could not acquire lock for table number: " + initialTable.getTableNumber()));
 
-        if(activeOrderOpt.isPresent()) {
-            Order activeOrder = activeOrderOpt.get();
-            return addItemsToOrder (activeOrder.getId(), request.getOrderItems());
-        } else {
-            Order newOrder = Order.builder()
-                    .restaurantTable(targetTable)
-                    .status(OrderStatus.RECEIVED)
-                    .orderTime(LocalDateTime.now())
-                    .isPaid(false)
+
+        Optional<Order> activeOrderOpt = orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.RECEIVED));
+
+        if (activeOrderOpt.isPresent()) {
+            throw new IllegalStateException(
+                    "An active order already exists for table " + targetTable.getTableNumber() +
+                            ". Please use the 'add items to order' endpoint (POST /api/orders/{orderId}/items) instead."
+            );
+        }
+
+
+        Order newOrder = Order.builder()
+                .restaurantTable(targetTable)
+                .status(OrderStatus.RECEIVED)
+                .orderTime(LocalDateTime.now())
+                .isPaid(false)
+                .build();
+
+        for (OrderItemRequest itemRequest : request.getOrderItems()) {
+            Menu menu = menuRepository.findById(itemRequest.getMenuId())
+                    .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID" + itemRequest.getMenuId()));
+
+            if (!menu.isAvailable()) {
+                throw new IllegalArgumentException("Invalid menu item or quantity");
+            }
+
+            OrderItem orderItem = OrderItem.builder()
+                    .menu(menu)
+                    .quantity(itemRequest.getQuantity())
+                    .itemPrice(menu.getPrice())
+                    .status(OrderItemStatus.IN_COOKING)
                     .build();
 
-            for (OrderItemRequest itemRequest : request.getOrderItems()) {
-                Menu menu = menuRepository.findById(itemRequest.getMenuId())
-                        .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID" + itemRequest.getMenuId()));
-
-                if (!menu.isAvailable() || itemRequest.getQuantity() <= 0) {
-                    throw new IllegalArgumentException("Invalid menu item or quantity");
-                }
-
-                OrderItem orderItem = OrderItem.builder()
-                        .menu(menu)
-                        .quantity(itemRequest.getQuantity())
-                        .itemPrice(menu.getPrice())
-                        .status(OrderItemStatus.IN_COOKING)
-                        .build();
-
-                newOrder.addOrderItem(orderItem);
-            }
-            newOrder.calculateTotalPrice();
-
-            Order savedOrder = orderRepository.save(newOrder);
-            return OrderResponse.fromEntity(savedOrder);
+            newOrder.addOrderItem(orderItem);
         }
+        newOrder.calculateTotalPrice();
+
+        Order savedOrder = orderRepository.save(newOrder);
+        return OrderResponse.fromEntity(savedOrder);
     }
 
 
-    public List<OrderResponse> getAllOrders() {
-        return orderRepository.findAll().stream()
+    public List<OrderResponse> getAllOrders(OrderStatus status) {
+        List<Order> orders;
+        if (status != null) {
+            orders = orderRepository.findAllByStatusIn(List.of(status));
+        } else {
+            orders = orderRepository.findAllByStatusIn(List.of(OrderStatus.RECEIVED));
+        }
+
+        return orders.stream()
                 .map(OrderResponse::fromEntity)
                 .collect(Collectors.toList());
     }
@@ -133,7 +146,7 @@ public class OrderService {
 
 
             //2. 이미 있다면 해당 수량만 업데이트
-            if(existingItemOpt.isPresent()){
+            if (existingItemOpt.isPresent()) {
                 OrderItem existingItem = existingItemOpt.get();
                 existingItem.setQuantity(existingItem.getQuantity() + itemRequest.getQuantity());
             }
@@ -182,7 +195,6 @@ public class OrderService {
         Order updatedOrder = orderRepository.save(order);
         return OrderResponse.fromEntity(updatedOrder);
     }
-
 
 
     @Transactional

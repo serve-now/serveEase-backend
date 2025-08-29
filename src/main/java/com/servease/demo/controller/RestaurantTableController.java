@@ -3,6 +3,7 @@ package com.servease.demo.controller;
 import com.servease.demo.dto.request.RestaurantTableCreateRequest;
 import com.servease.demo.dto.request.RestaurantTableStatusUpdateRequest;
 import com.servease.demo.dto.response.RestaurantTableResponse;
+import com.servease.demo.service.OrderService;
 import com.servease.demo.service.RestaurantTableService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,15 +16,17 @@ import java.util.List;
 @RequestMapping("/api/tables")
 public class RestaurantTableController {
 
+    private final OrderService orderService;
     private final RestaurantTableService restaurantTableService;
 
     @Autowired
-    public RestaurantTableController(RestaurantTableService restaurantTableService) {
+    public RestaurantTableController(RestaurantTableService restaurantTableService, OrderService orderService) {
         this.restaurantTableService = restaurantTableService;
+        this.orderService = orderService;
     }
 
     @GetMapping
-    public ResponseEntity<List<RestaurantTableResponse>> getAllTables(){
+    public ResponseEntity<List<RestaurantTableResponse>> getAllTables() {
         List<RestaurantTableResponse> tableResponses = restaurantTableService.getAllTables();
         return ResponseEntity.ok(tableResponses);
     }
@@ -44,6 +47,12 @@ public class RestaurantTableController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTable(@PathVariable Long id) {
         restaurantTableService.deleteTable(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{tableId}/orders")
+    public ResponseEntity<Void> deleteAllOrdersByTable(@PathVariable Long tableId) {
+        orderService.deleteAllOrdersByTable(tableId);
         return ResponseEntity.noContent().build();
     }
 }
