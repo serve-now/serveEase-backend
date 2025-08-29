@@ -12,9 +12,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByRestaurantTableId(Long restaurantTableId);
 
-    //테이블당 활성 주문은 하나
-    Optional<Order> findByRestaurantTableIdAndIsPaidFalse (Long restaurantTableId);
-
+    Optional<Order> findByRestaurantTableIdAndStatusIn(Long restaurantTableId, Collection<OrderStatus> statuses);
 
     // active : RECEIVED, IN_PROGRESS
     // inactive : CANCELED
