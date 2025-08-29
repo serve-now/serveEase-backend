@@ -45,10 +45,10 @@ public class OrderService {
         );
 
         RestaurantTable targetTable = restaurantTableRepository.findByIdWithLock(initialTable.getId())
-                .orElseThrow(()->new IllegalStateException("Could not acquire lock for table number: " + initialTable.getTableNumber()));
+                .orElseThrow(() -> new IllegalStateException("Could not acquire lock for table number: " + initialTable.getTableNumber()));
 
 
-        Optional<Order> activeOrderOpt = orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.RECEIVED));
+        Optional<Order> activeOrderOpt = orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.RECEIVED, OrderStatus.SERVED));
 
         if (activeOrderOpt.isPresent()) {
             throw new IllegalStateException(
@@ -61,7 +61,6 @@ public class OrderService {
         Order newOrder = Order.builder()
                 .restaurantTable(targetTable)
                 .status(OrderStatus.RECEIVED)
-                .orderTime(LocalDateTime.now())
                 .isPaid(false)
                 .build();
 
@@ -94,7 +93,7 @@ public class OrderService {
         if (status != null) {
             orders = orderRepository.findAllByStatusIn(List.of(status));
         } else {
-            orders = orderRepository.findAllByStatusIn(List.of(OrderStatus.RECEIVED));
+            orders = orderRepository.findAllByStatusIn(List.of(OrderStatus.RECEIVED, OrderStatus.SERVED));
         }
 
         return orders.stream()
@@ -223,24 +222,9 @@ public class OrderService {
         RestaurantTable restaurantTable = order.getRestaurantTable();
         restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
 
+        restaurantTableRepository.save(restaurantTable);
         Order canceledOrder = orderRepository.save(order);
         return OrderResponse.fromEntity(canceledOrder);
-    }
-
-    @Transactional
-    public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
-
-        if (newStatus == OrderStatus.CANCELED) {
-            return cancelOrder(orderId);
-        }
-
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
-
-        order.setStatus(newStatus);
-        Order updatedOrder = orderRepository.save(order);
-
-        return OrderResponse.fromEntity(updatedOrder);
     }
 
 
@@ -261,9 +245,14 @@ public class OrderService {
         boolean allItemServed = order.getOrderItems().stream()
                 .allMatch(item -> item.getStatus() == OrderItemStatus.SERVED);
 
-        //그렇다면 orderStatus 를 'COMPLETE' 로 변경
+
         if (allItemServed) {
-            order.setStatus(OrderStatus.COMPLETED);
+            if (order.isPaid()) {
+                order.setStatus(OrderStatus.COMPLETED);
+            } else {
+                order.setStatus(OrderStatus.SERVED);
+            }
+
         }
 
         Order updatedOrder = orderRepository.save(order);
@@ -277,33 +266,29 @@ public class OrderService {
                 .orElseThrow(() -> new IllegalArgumentException("Order not found with ID :" + orderId));
 
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new IllegalArgumentException("Order cannot be completed, current status : " + order.getStatus());
+            throw new IllegalArgumentException("Status cannot be change, current status : " + order.getStatus());
         }
-
         if (order.isPaid()) {
-            throw new IllegalArgumentException("Order has already been paid.");
+            throw new IllegalStateException("This order has already been paid.");
         }
 
         order.setPaid(true);
-        Order updatedOrder = orderRepository.save(order);
 
+        if (order.getStatus() == OrderStatus.SERVED) {
+            order.setStatus(OrderStatus.COMPLETED);
+
+            //결제가 완료되면 EMPTY 로 변경
+            RestaurantTable table = order.getRestaurantTable();
+            if (table.getStatus() == RestaurantTableStatus.USING) {
+                table.updateStatus(RestaurantTableStatus.EMPTY);
+                restaurantTableRepository.save(table);
+            }
+        }
+
+        Order updatedOrder = orderRepository.save(order);
         return OrderResponse.fromEntity(updatedOrder);
     }
 
-    @Transactional
-    public RestaurantTableResponse checkoutTable(Long restaurantTableId) {
-        RestaurantTable restaurantTable = restaurantTableRepository.findById(restaurantTableId)
-                .orElseThrow(() -> new IllegalArgumentException("RestaurantTable not found with ID: " + restaurantTableId));
-
-        if (restaurantTable.getStatus() != RestaurantTableStatus.USING) {
-            throw new IllegalArgumentException("Table is not currently in use");
-        }
-
-        restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
-        RestaurantTable updatedTable = restaurantTableRepository.save(restaurantTable);
-
-        return RestaurantTableResponse.fromEntity(updatedTable);
-    }
 
     @Transactional
     public void deleteAllOrdersByTable(Long tableId) {
@@ -317,10 +302,12 @@ public class OrderService {
             if (order.getStatus() != OrderStatus.COMPLETED && order.getStatus() != OrderStatus.CANCELED) {
                 order.setStatus(OrderStatus.CANCELED);
                 order.getOrderItems().forEach(item -> item.setStatus(OrderItemStatus.CANCELED));
+                orderRepository.save(order);
             }
         }
 
         table.setStatus(RestaurantTableStatus.EMPTY);
+        restaurantTableRepository.save(table);
     }
 
 }
