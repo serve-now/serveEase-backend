@@ -81,5 +81,12 @@ public class OrderController {
         return ResponseEntity.ok(updatedOrder);
     }
 
+    @DeleteMapping("/{orderId}/items/{orderItemId}")
+    public ResponseEntity<OrderResponse> removeOrderItem(@PathVariable Long orderId, @PathVariable Long orderItemId) {
+        OrderResponse updatedOrder = orderService.removeOrderItem(orderId, orderItemId);
+        return ResponseEntity.ok(updatedOrder);
+    }
+
+
 
 }
