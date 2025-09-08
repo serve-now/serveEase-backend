@@ -35,7 +35,7 @@ public class MenuService {
                 .name(request.getName())
                 .price(request.getPrice())
                 .category(request.getCategory())
-                .available(request.isAvailable())
+                .isAvailable(request.isAvailable())
                 .build();
 
         Menu savedMenu = menuRepository.save(newMenu);
@@ -50,7 +50,7 @@ public class MenuService {
     }
 
     public List<MenuResponse> getAvailableMenus() {
-        List<Menu> menus = menuRepository.findByAvailableIsTrue();
+        List<Menu> menus = menuRepository.findByIsAvailableIsTrue();
         return menus.stream()
                 .map(MenuResponse::fromEntity)
                 .collect(Collectors.toList());
