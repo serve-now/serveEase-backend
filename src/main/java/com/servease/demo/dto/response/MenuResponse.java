@@ -12,7 +12,7 @@ public class MenuResponse {
     private String name;
     private Integer price;
     private String category;
-    private boolean available;
+    private boolean isAvailable;
 
     //클래스 인스턴스를 생성하지 않고 호출할 수 있게 static 으로 선언
     public static MenuResponse fromEntity(Menu menu) {
@@ -21,7 +21,7 @@ public class MenuResponse {
                 .name(menu.getName())
                 .price(menu.getPrice())
                 .category(menu.getCategory())
-                .available(menu.isAvailable())
+                .isAvailable(menu.isAvailable())
                 .build();
     }
 }
