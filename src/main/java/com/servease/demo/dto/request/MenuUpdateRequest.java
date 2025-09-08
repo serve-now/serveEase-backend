@@ -13,5 +13,5 @@ public class MenuUpdateRequest {
     private String name;
     private int price;
     private String category;
-    private boolean isAvailable;
+    private boolean available;
 }
