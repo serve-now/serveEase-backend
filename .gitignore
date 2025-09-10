@@ -7,6 +7,9 @@ build/
 
 # Spring Boot application properties
 src/main/resources/application.properties
+# Spring Boot specific files
+src/main/resources/application-dev.yml
+
 
 ### STS ###
 .apt_generated
