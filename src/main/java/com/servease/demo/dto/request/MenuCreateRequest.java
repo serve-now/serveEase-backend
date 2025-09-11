@@ -10,6 +10,6 @@ public class MenuCreateRequest {
     //id 는 자동생성
     private String name;
     private int price;
-    private String category;
+    private Long categoryId;
     private boolean available = true;
 }

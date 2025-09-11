@@ -3,7 +3,9 @@ package com.servease.demo.service;
 import com.servease.demo.dto.request.MenuCreateRequest;
 import com.servease.demo.dto.response.MenuResponse;
 import com.servease.demo.dto.request.MenuUpdateRequest;
+import com.servease.demo.model.entity.Category;
 import com.servease.demo.model.entity.Menu;
+import com.servease.demo.repository.CategoryRepository;
 import com.servease.demo.repository.MenuRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -18,10 +20,12 @@ import java.util.stream.Collectors;
 public class MenuService {
 
     private final MenuRepository menuRepository;
+    private final CategoryRepository categoryRepository;
 
     @Autowired
-    public MenuService(MenuRepository menuRepository) {
+    public MenuService(MenuRepository menuRepository, CategoryRepository categoryRepository) {
         this.menuRepository = menuRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     //TODO 에러코드 전체 500으로 내려감
@@ -31,10 +35,13 @@ public class MenuService {
             throw new IllegalArgumentException("Menu with name" + request.getName() + "already exists.");
         }
 
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(()-> new IllegalArgumentException("Category not found with ID: " + request.getCategoryId()));
+
         Menu newMenu = Menu.builder()
                 .name(request.getName())
                 .price(request.getPrice())
-                .category(request.getCategory())
+                .category(category)
                 .available(request.isAvailable())
                 .build();
 
@@ -75,14 +82,19 @@ public class MenuService {
         Menu menu = menuRepository.findById(menuId)
                 .orElseThrow(() -> new IllegalArgumentException("Menu not found with ID : " + menuId));
 
-        //여기서 updateMenu인데, 이미 menu 이름이 있는지 찾는 경우에도 findById ?
-        if (!menu.getName().equals(request.getName()) && menuRepository.findByName(request.getName()).isPresent()) {
-            throw new IllegalArgumentException("Menu with name" + request.getName() + "already exists");
+        if (request.getName() != null && !request.getName().equals(menu.getName())) {
+            menuRepository.findByName(request.getName()).ifPresent(m -> {
+                throw new IllegalArgumentException("Menu with name '" + request.getName() + "' already exists.");
+            });
         }
+
+        Category category = categoryRepository.findById(request.getCategoryId())
+                    .orElseThrow(() -> new IllegalArgumentException("Category not found with ID: " + request.getCategoryId()));
+
 
         menu.setName(request.getName());
         menu.setPrice(request.getPrice());
-        menu.setCategory(request.getCategory());
+        menu.setCategory(category);
         menu.setAvailable(request.isAvailable());
 
         Menu updatedMenu = menuRepository.save(menu);

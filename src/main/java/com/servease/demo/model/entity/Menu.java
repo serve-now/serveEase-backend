@@ -21,8 +21,9 @@ public class Menu {
     @Column(name = "price", nullable = false)
     private Integer price;
 
-    @Column(name = "category", length = 50)
-    private String category;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
 
     @Column(name = "available", nullable = false)
     private boolean available;

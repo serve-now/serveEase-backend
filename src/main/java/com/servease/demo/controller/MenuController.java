@@ -6,6 +6,7 @@ import com.servease.demo.dto.response.MenuResponse;
 import com.servease.demo.model.entity.Menu;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.service.MenuService;
+import lombok.RequiredArgsConstructor;
 import org.hibernate.boot.model.naming.ImplicitEntityNameSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -13,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,7 +23,6 @@ public class MenuController {
 
     private final MenuService menuService;
 
-    @Autowired
     public MenuController(MenuService menuService) {
         this.menuService = menuService;
     }

@@ -20,7 +20,7 @@ public class MenuResponse {
                 .id(menu.getId())
                 .name(menu.getName())
                 .price(menu.getPrice())
-                .category(menu.getCategory())
+                .category(menu.getCategory().getName())
                 .available(menu.isAvailable())
                 .build();
     }

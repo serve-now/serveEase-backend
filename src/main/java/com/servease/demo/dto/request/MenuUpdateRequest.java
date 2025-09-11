@@ -12,6 +12,6 @@ import lombok.Setter;
 public class MenuUpdateRequest {
     private String name;
     private int price;
-    private String category;
+    private Long categoryId;
     private boolean available;
 }
