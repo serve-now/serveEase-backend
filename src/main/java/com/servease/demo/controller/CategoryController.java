@@ -31,4 +31,20 @@ public class CategoryController {
         return ResponseEntity.ok(categoryResponses);
     }
 
+    @PutMapping("/{categoryId}")
+    public ResponseEntity<CategoryResponse> updateCategory(@PathVariable Long categoryId, @RequestBody CategoryRequest request) {
+        CategoryResponse updatedCategory = categoryService.updateCategory(categoryId, request);
+        return ResponseEntity.ok(updatedCategory);
+    }
+
+    @DeleteMapping("/{categoryId}")
+    public ResponseEntity<Void> deleteCategory(@PathVariable Long categoryId) {
+        categoryService.deleteCategory(categoryId);
+        return ResponseEntity.noContent().build();
+    }
+
+
+
+
+
 }

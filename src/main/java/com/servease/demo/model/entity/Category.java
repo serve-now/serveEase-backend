@@ -17,4 +17,8 @@ public class Category {
 
     @Column(name = "name", nullable = false, unique = true, length = 50)
     private String name;
+
+    public void updateName(String newName) {
+        this.name = newName;
+    }
 }

@@ -55,14 +55,12 @@ public class MenuController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    //update
     @PutMapping("/{menuId}")
     public ResponseEntity<MenuResponse> updateMenu(@PathVariable Long menuId, @RequestBody MenuUpdateRequest request) {
         MenuResponse udpateMenuResponse = menuService.updateMenu(menuId, request);
         return ResponseEntity.ok(udpateMenuResponse);
     }
 
-    //delete
     @DeleteMapping("/{menuId}")
     public ResponseEntity<MenuResponse> deleteMenu(@PathVariable Long menuId) {
         menuService.deleteMenu(menuId);
