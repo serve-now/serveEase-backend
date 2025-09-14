@@ -7,8 +7,8 @@ import com.servease.demo.model.entity.Category;
 import com.servease.demo.model.entity.Menu;
 import com.servease.demo.repository.CategoryRepository;
 import com.servease.demo.repository.MenuRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -100,7 +100,7 @@ public class MenuService {
     @Transactional
     public void deleteMenu(Long menuId) {
         if (!menuRepository.existsById(menuId)) {
-            throw new IllegalArgumentException("Menu not found with ID " + menuId);
+            throw new EntityNotFoundException("Menu not found with ID " + menuId);
         }
         menuRepository.deleteById(menuId);
     }
