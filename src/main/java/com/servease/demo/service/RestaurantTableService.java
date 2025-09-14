@@ -4,6 +4,7 @@ import com.servease.demo.dto.response.RestaurantTableResponse;
 import com.servease.demo.model.entity.RestaurantTable;
 import com.servease.demo.model.enums.RestaurantTableStatus;
 import com.servease.demo.repository.RestaurantTableRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -13,14 +14,10 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class RestaurantTableService {
 
     private final RestaurantTableRepository restaurantTableRepository;
-
-    @Autowired
-    public RestaurantTableService(RestaurantTableRepository restaurantTableRepository) {
-        this.restaurantTableRepository = restaurantTableRepository;
-    }
 
     @Transactional
     public RestaurantTableResponse createTable(Integer tableNumber) {

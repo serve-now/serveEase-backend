@@ -15,15 +15,12 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final MenuRepository menuRepository;
 
-    public CategoryService(CategoryRepository categoryRepository, MenuRepository menuRepository) {
-        this.categoryRepository = categoryRepository;
-        this.menuRepository = menuRepository;
-    }
 
     @Transactional
     public CategoryResponse createCategory(CategoryRequest request) {

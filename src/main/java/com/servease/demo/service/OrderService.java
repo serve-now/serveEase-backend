@@ -14,6 +14,7 @@ import com.servease.demo.model.enums.RestaurantTableStatus;
 import com.servease.demo.repository.MenuRepository;
 import com.servease.demo.repository.OrderRepository;
 import com.servease.demo.repository.RestaurantTableRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,18 +26,13 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class OrderService {
 
     private final OrderRepository orderRepository;
     private final RestaurantTableRepository restaurantTableRepository;
     private final MenuRepository menuRepository;
 
-    @Autowired
-    public OrderService(OrderRepository orderRepository, RestaurantTableRepository restaurantTableRepository, MenuRepository menuRepository) {
-        this.orderRepository = orderRepository;
-        this.restaurantTableRepository = restaurantTableRepository;
-        this.menuRepository = menuRepository;
-    }
 
     @Transactional
     public OrderResponse createOrder(OrderCreateRequest request) {
