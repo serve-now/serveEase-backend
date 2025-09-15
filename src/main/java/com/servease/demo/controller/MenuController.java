@@ -4,6 +4,7 @@ import com.servease.demo.dto.request.MenuCreateRequest;
 import com.servease.demo.dto.request.MenuUpdateRequest;
 import com.servease.demo.dto.response.MenuResponse;
 import com.servease.demo.service.MenuService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +22,7 @@ public class MenuController {
     }
 
     @PostMapping
-    public ResponseEntity<MenuResponse> createMenu(@RequestBody MenuCreateRequest request) {
+    public ResponseEntity<MenuResponse> createMenu(@Valid @RequestBody MenuCreateRequest request) {
         MenuResponse menuResponse = menuService.createMenu(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(menuResponse);
     }
@@ -49,13 +50,13 @@ public class MenuController {
     }
 
     @PutMapping("/{menuId}")
-    public ResponseEntity<MenuResponse> updateMenu(@PathVariable Long menuId, @RequestBody MenuUpdateRequest request) {
+    public ResponseEntity<MenuResponse> updateMenu(@PathVariable Long menuId, @Valid @RequestBody MenuUpdateRequest request) {
         MenuResponse udpateMenuResponse = menuService.updateMenu(menuId, request);
         return ResponseEntity.ok(udpateMenuResponse);
     }
 
     @DeleteMapping("/{menuId}")
-    public ResponseEntity<MenuResponse> deleteMenu(@PathVariable Long menuId) {
+    public ResponseEntity<Void> deleteMenu(@PathVariable Long menuId) {
         menuService.deleteMenu(menuId);
         return ResponseEntity.noContent().build();
     }
