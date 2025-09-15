@@ -2,6 +2,8 @@ package com.servease.demo.service;
 
 import com.servease.demo.dto.request.CategoryRequest;
 import com.servease.demo.dto.response.CategoryResponse;
+import com.servease.demo.global.exception.BusinessException;
+import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.entity.Category;
 import com.servease.demo.repository.CategoryRepository;
 import com.servease.demo.repository.MenuRepository;
@@ -24,9 +26,9 @@ public class CategoryService {
 
     @Transactional
     public CategoryResponse createCategory(CategoryRequest request) {
-        categoryRepository.findByName(request.getName()).ifPresent(category -> {
-            throw new IllegalArgumentException("Category name already exists with ID: " + request.getName());
-        });
+        if (categoryRepository.findByName(request.getName()).isPresent()) {
+            throw new BusinessException(ErrorCode.DUPLICATE_CATEGORY_NAME, "Category name '" + request.getName() + "' already exists.");
+        }
 
         Category category = request.toEntity();
         Category savedCategory = categoryRepository.save(category);
@@ -43,12 +45,12 @@ public class CategoryService {
     @Transactional
     public CategoryResponse updateCategory(Long categoryId, CategoryRequest request) {
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new EntityNotFoundException("카테고리를 찾을 수 없습니다. ID: " + categoryId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND, "Category id=" + categoryId + " not found"));
 
         if (request.getName() != null && !request.getName().equals(category.getName())) {
             categoryRepository.findByName(request.getName()).ifPresent(existingCategory -> {
                 if (!existingCategory.getId().equals(categoryId)) {
-                    throw new IllegalArgumentException("이미 존재하는 카테고리 이름입니다: " + request.getName());
+                    throw new BusinessException(ErrorCode.DUPLICATE_CATEGORY_NAME, "Category name '" + request.getName() + "' already exists.");
                 }
             });
         }
@@ -59,12 +61,14 @@ public class CategoryService {
 
     @Transactional
     public void deleteCategory(Long categoryId) {
-        Category categoryToDelete = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + categoryId));
+        if (!categoryRepository.existsById(categoryId)) {
+            throw new BusinessException(ErrorCode.CATEGORY_NOT_FOUND, "Category id=" + categoryId + " not found");
+        }
 
         if (menuRepository.existsByCategoryId(categoryId)) {
-            throw new IllegalStateException("Cannot delete category because it is in use by one or more menus.");
+            throw new BusinessException(ErrorCode.CATEGORY_IN_USE, "Category id=" + categoryId + " is still referenced by existing menus");
         }
+
         categoryRepository.deleteById(categoryId);
     }
 }
