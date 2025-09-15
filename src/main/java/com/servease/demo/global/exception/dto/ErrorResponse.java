@@ -1,5 +1,6 @@
 package com.servease.demo.global.exception.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -15,6 +16,8 @@ public class ErrorResponse {
     private final String title;
     private final String detail; //error.message
     private final String timestamp;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final List<FieldErrorItem> errors; // DTO검증 실패시 사용
 
 
