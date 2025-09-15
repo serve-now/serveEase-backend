@@ -3,19 +3,12 @@ package com.servease.demo.controller;
 import com.servease.demo.dto.request.MenuCreateRequest;
 import com.servease.demo.dto.request.MenuUpdateRequest;
 import com.servease.demo.dto.response.MenuResponse;
-import com.servease.demo.model.entity.Menu;
-import com.servease.demo.model.entity.Order;
 import com.servease.demo.service.MenuService;
-import lombok.RequiredArgsConstructor;
-import org.hibernate.boot.model.naming.ImplicitEntityNameSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/menus")
@@ -50,9 +43,9 @@ public class MenuController {
     //get id
     @GetMapping("/{menuId}")
     public ResponseEntity<MenuResponse> getMenuById(@PathVariable Long menuId) {
-        Optional<MenuResponse> menuResponseOptional = menuService.getMenuById(menuId);
-        return menuResponseOptional.map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        // [수정] 서비스에서 바로 응답 DTO를 받으므로 코드가 간결해집니다.
+        MenuResponse menuResponse = menuService.getMenuById(menuId);
+        return ResponseEntity.ok(menuResponse);
     }
 
     @PutMapping("/{menuId}")
