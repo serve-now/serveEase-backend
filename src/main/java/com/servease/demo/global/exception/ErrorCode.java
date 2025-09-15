@@ -1,0 +1,31 @@
+package com.servease.demo.global.exception;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+
+@Getter
+@RequiredArgsConstructor
+public enum ErrorCode {
+
+    // 400 Bad Request
+    INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "E001", "입력 값이 올바르지 않습니다."),
+
+    // 404 Not Found
+    MENU_NOT_FOUND(HttpStatus.NOT_FOUND, "E002", "메뉴를 찾을 수 없습니다."),
+    CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "E003", "카테고리를 찾을 수 없습니다."),
+    ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "E004", "주문을 찾을 수 없습니다."),
+
+    // 409 Conflict
+    DUPLICATE_MENU_NAME(HttpStatus.CONFLICT, "E005", "이미 존재하는 메뉴 이름입니다."),
+    DUPLICATE_CATEGORY_NAME(HttpStatus.CONFLICT, "E006", "이미 존재하는 카테고리 이름입니다."),
+    CATEGORY_IN_USE(HttpStatus.CONFLICT, "E007", "해당 카테고리를 사용하는 메뉴가 있어 삭제할 수 없습니다."),
+    ORDER_STATUS_NOT_VALID(HttpStatus.CONFLICT, "E008", "주문 상태가 유효하지 않아 작업을 완료할 수 없습니다."),
+
+    // 500 Internal Server Error
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E999", "서버 내부 오류가 발생했습니다.");
+
+    private final HttpStatus status;
+    private final String code;
+    private final String message;
+}
