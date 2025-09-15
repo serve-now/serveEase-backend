@@ -1,6 +1,8 @@
 package com.servease.demo.service;
 
 import com.servease.demo.dto.response.RestaurantTableResponse;
+import com.servease.demo.global.exception.BusinessException;
+import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.entity.RestaurantTable;
 import com.servease.demo.model.enums.RestaurantTableStatus;
 import com.servease.demo.repository.RestaurantTableRepository;
@@ -22,7 +24,7 @@ public class RestaurantTableService {
     @Transactional
     public RestaurantTableResponse createTable(Integer tableNumber) {
         if (restaurantTableRepository.findByTableNumber(tableNumber).isPresent()) {
-            throw new IllegalArgumentException("Table number " + tableNumber + "already Exists");
+            throw new BusinessException(ErrorCode.DUPLICATE_TABLE_NUMBER, "Table number " + tableNumber + " already exists.");
         }
 
         RestaurantTable newTable = RestaurantTable.builder()
@@ -37,7 +39,7 @@ public class RestaurantTableService {
     public RestaurantTableResponse getTableById(Long id) {
         return restaurantTableRepository.findById(id)
                 .map(RestaurantTableResponse::fromEntity)
-                .orElseThrow(() -> new IllegalArgumentException("Table not found with ID: " + id));
+                .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table with ID " + id + " not found."));
     }
 
     public List<RestaurantTableResponse> getAllTables() {
@@ -49,7 +51,7 @@ public class RestaurantTableService {
     @Transactional
     public RestaurantTableResponse updateTableStatus(Long id, RestaurantTableStatus newStatus) {
         RestaurantTable table = restaurantTableRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Table not found with ID:" + id));
+                .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table with ID " + id + " not found."));
         table.setStatus(newStatus);
         return RestaurantTableResponse.fromEntity(table);
     }
