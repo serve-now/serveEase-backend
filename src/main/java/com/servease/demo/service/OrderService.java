@@ -3,7 +3,6 @@ package com.servease.demo.service;
 import com.servease.demo.dto.request.OrderCreateRequest;
 import com.servease.demo.dto.request.OrderItemRequest;
 import com.servease.demo.dto.response.OrderResponse;
-import com.servease.demo.dto.response.RestaurantTableResponse;
 import com.servease.demo.model.entity.Menu;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.OrderItem;
@@ -15,11 +14,9 @@ import com.servease.demo.repository.MenuRepository;
 import com.servease.demo.repository.OrderRepository;
 import com.servease.demo.repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -132,29 +129,37 @@ public class OrderService {
                 throw new IllegalArgumentException(" Menu item " + menu.getName() + "is not available.");
             }
 
+            OrderItem newOrderItem = OrderItem.builder()
+                    .menu(menu)
+                    .quantity(itemRequest.getQuantity())
+                    .itemPrice(menu.getPrice())
+                    .status(OrderItemStatus.IN_COOKING) // 새로 추가된 항목은 항상 '조리 중' 상태
+                    .build();
+            order.addOrderItem(newOrderItem);
 
-            //로직 개선...
-            //1. 기존 주문에 동일한 메뉴가 있는지 확인
-            Optional<OrderItem> existingItemOpt = order.getOrderItems().stream()
-                    .filter(item -> item.getMenu().getId().equals(itemRequest.getMenuId()))
-                    .findFirst();
 
-
-            //2. 이미 있다면 해당 수량만 업데이트
-            if (existingItemOpt.isPresent()) {
-                OrderItem existingItem = existingItemOpt.get();
-                existingItem.setQuantity(existingItem.getQuantity() + itemRequest.getQuantity());
-            }
-            //3. 없다면 OrderItem 을 생성하여 주문에 추가
-            else {
-                OrderItem newOrderItem = OrderItem.builder()
-                        .menu(menu)
-                        .quantity(itemRequest.getQuantity())
-                        .itemPrice(menu.getPrice())
-                        .status(OrderItemStatus.IN_COOKING)
-                        .build();
-                order.addOrderItem(newOrderItem);
-            }
+//            //로직 개선...
+//            //1. 기존 주문에 동일한 메뉴가 있는지 확인
+//            Optional<OrderItem> existingItemOpt = order.getOrderItems().stream()
+//                    .filter(item -> item.getMenu().getId().equals(itemRequest.getMenuId()))
+//                    .findFirst();
+//
+//
+//            //2. 이미 있다면 해당 수량만 업데이트
+//            if (existingItemOpt.isPresent()) {
+//                OrderItem existingItem = existingItemOpt.get();
+//                existingItem.setQuantity(existingItem.getQuantity() + itemRequest.getQuantity());
+//            }
+//            //3. 없다면 OrderItem 을 생성하여 주문에 추가
+//            else {
+//                OrderItem newOrderItem = OrderItem.builder()
+//                        .menu(menu)
+//                        .quantity(itemRequest.getQuantity())
+//                        .itemPrice(menu.getPrice())
+//                        .status(OrderItemStatus.IN_COOKING)
+//                        .build();
+//                order.addOrderItem(newOrderItem);
+//            }
         }
 
         order.calculateTotalPrice();
