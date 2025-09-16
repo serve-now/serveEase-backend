@@ -137,6 +137,10 @@ public class OrderService {
             order.addOrderItem(newOrderItem);
         }
 
+        if (order.getStatus() == OrderStatus.SERVED) {
+            order.setStatus(OrderStatus.RECEIVED);
+        }
+
         order.calculateTotalPrice();
 
         Order updatedOrder = orderRepository.save(order);
@@ -202,7 +206,6 @@ public class OrderService {
         Order canceledOrder = orderRepository.save(order);
         return OrderResponse.fromEntity(canceledOrder);
     }
-
 
     @Transactional
     public OrderResponse updateOrderItemStatus(Long orderId, Long orderItemId, OrderItemStatus newStatus) {
