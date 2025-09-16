@@ -3,6 +3,8 @@ package com.servease.demo.service;
 import com.servease.demo.dto.request.OrderCreateRequest;
 import com.servease.demo.dto.request.OrderItemRequest;
 import com.servease.demo.dto.response.OrderResponse;
+import com.servease.demo.global.exception.BusinessException;
+import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.entity.Menu;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.OrderItem;
@@ -33,21 +35,18 @@ public class OrderService {
 
     @Transactional
     public OrderResponse createOrder(OrderCreateRequest request) {
-        RestaurantTable initialTable = restaurantTableRepository.findByTableNumber(request.getRestaurantTableNumber()).orElseThrow(
-                () -> new IllegalArgumentException("Table number not exists : " + request.getRestaurantTableNumber())
-        );
+        RestaurantTable initialTable = restaurantTableRepository.findByTableNumber(request.getRestaurantTableNumber())
+                .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table number " + request.getRestaurantTableNumber() + " does not exist."));
 
         RestaurantTable targetTable = restaurantTableRepository.findByIdWithLock(initialTable.getId())
-                .orElseThrow(() -> new IllegalStateException("Could not acquire lock for table number: " + initialTable.getTableNumber()));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Could not acquire lock for table: " + initialTable.getTableNumber()));
 
-
+        orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.RECEIVED, OrderStatus.SERVED));
         Optional<Order> activeOrderOpt = orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.RECEIVED, OrderStatus.SERVED));
 
         if (activeOrderOpt.isPresent()) {
-            throw new IllegalStateException(
-                    "An active order already exists for table " + targetTable.getTableNumber() +
-                            ". Please use the 'add items to order' endpoint (POST /api/orders/{orderId}/items) instead."
-            );
+            throw new BusinessException(ErrorCode.ACTIVE_ORDER_EXISTS,
+                    "An active order already exists for table " + targetTable.getTableNumber());
         }
 
 
@@ -59,10 +58,10 @@ public class OrderService {
 
         for (OrderItemRequest itemRequest : request.getOrderItems()) {
             Menu menu = menuRepository.findById(itemRequest.getMenuId())
-                    .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID" + itemRequest.getMenuId()));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.MENU_NOT_FOUND, "Menu item not found with ID" + itemRequest.getMenuId()));
 
             if (!menu.isAvailable()) {
-                throw new IllegalArgumentException("Invalid menu item or quantity");
+                throw new BusinessException(ErrorCode.MENU_NOT_AVAILABLE, "Invalid menu item or quantity");
             }
 
             OrderItem orderItem = OrderItem.builder()
@@ -110,23 +109,23 @@ public class OrderService {
     @Transactional
     public OrderResponse addItemsToOrder(Long orderId, List<OrderItemRequest> itemRequests) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID" + orderId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID" + orderId));
 
         //여기서 status canceled 가 없으면 주문 삭제 후에도 add 가 되는지 test 해봐야 함
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new IllegalStateException("Cannot add items to a completed or canceled order");
+            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot add items to a completed or canceled order");
         }
 
         if (itemRequests == null || itemRequests.isEmpty()) {
-            throw new IllegalArgumentException("No items to add");
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "No items to add");
         }
 
         for (OrderItemRequest itemRequest : itemRequests) {
             Menu menu = menuRepository.findById(itemRequest.getMenuId())
-                    .orElseThrow(() -> new IllegalArgumentException("Menu item not found with ID: " + itemRequest.getMenuId()));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.MENU_NOT_FOUND, "Menu item not found with ID: " + itemRequest.getMenuId()));
 
-            if (!menu.isAvailable()) { // 수량 검증은 DTO의 @Min
-                throw new IllegalArgumentException(" Menu item " + menu.getName() + "is not available.");
+            if (!menu.isAvailable()) { // 수량 검증은 DTO에서 @Min으로
+                throw new BusinessException(ErrorCode.MENU_NOT_AVAILABLE, " Menu item " + menu.getName() + "is not available.");
             }
 
             OrderItem newOrderItem = OrderItem.builder()
@@ -136,30 +135,6 @@ public class OrderService {
                     .status(OrderItemStatus.IN_COOKING) // 새로 추가된 항목은 항상 '조리 중' 상태
                     .build();
             order.addOrderItem(newOrderItem);
-
-
-//            //로직 개선...
-//            //1. 기존 주문에 동일한 메뉴가 있는지 확인
-//            Optional<OrderItem> existingItemOpt = order.getOrderItems().stream()
-//                    .filter(item -> item.getMenu().getId().equals(itemRequest.getMenuId()))
-//                    .findFirst();
-//
-//
-//            //2. 이미 있다면 해당 수량만 업데이트
-//            if (existingItemOpt.isPresent()) {
-//                OrderItem existingItem = existingItemOpt.get();
-//                existingItem.setQuantity(existingItem.getQuantity() + itemRequest.getQuantity());
-//            }
-//            //3. 없다면 OrderItem 을 생성하여 주문에 추가
-//            else {
-//                OrderItem newOrderItem = OrderItem.builder()
-//                        .menu(menu)
-//                        .quantity(itemRequest.getQuantity())
-//                        .itemPrice(menu.getPrice())
-//                        .status(OrderItemStatus.IN_COOKING)
-//                        .build();
-//                order.addOrderItem(newOrderItem);
-//            }
         }
 
         order.calculateTotalPrice();
@@ -173,16 +148,16 @@ public class OrderService {
     @Transactional
     public OrderResponse updateOrderItemQuantity(Long orderId, Long orderItemId, int newQuantity) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID: " + orderId));
 
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new IllegalStateException("Cannot modify a completed or canceled order.");
+            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot modify a completed or canceled order.");
         }
 
         OrderItem targetItem = order.getOrderItems().stream()
                 .filter(item -> item.getId().equals(orderItemId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("OrderItem with ID " + orderItemId + " not found in this order."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND, "OrderItem with ID " + orderItemId + " not found in this order."));
 
         if (newQuantity == 0) {
             order.removeItemById(orderItemId);
@@ -200,7 +175,7 @@ public class OrderService {
     @Transactional
     public OrderResponse removeOrderItem(Long orderId, Long orderItemId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID: " + orderId));
         order.removeItemById(orderItemId);
 
         Order updatedOrder = orderRepository.save(order);
@@ -211,10 +186,10 @@ public class OrderService {
     @Transactional
     public OrderResponse cancelOrder(Long orderId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID: " + orderId));
 
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new IllegalArgumentException("Cannot cancel a completed order or already canceled order.");
+            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot cancel a completed order or already canceled order.");
         }
 
         order.setStatus(OrderStatus.CANCELED);
@@ -232,13 +207,13 @@ public class OrderService {
     @Transactional
     public OrderResponse updateOrderItemStatus(Long orderId, Long orderItemId, OrderItemStatus newStatus) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND, "Order not found with ID: " + orderId));
 
 
         OrderItem targetItem = order.getOrderItems().stream()
                 .filter(item -> item.getId().equals(orderItemId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("OrderItem not found with ID: " + orderItemId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND, "Order not found with ID: " + orderId));
 
         targetItem.setStatus(newStatus);
 
@@ -264,13 +239,13 @@ public class OrderService {
     @Transactional
     public OrderResponse completePayment(Long orderId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID :" + orderId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID :" + orderId));
 
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new IllegalArgumentException("Status cannot be change, current status : " + order.getStatus());
+            throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID, "Status cannot be change, current status : " + order.getStatus());
         }
         if (order.isPaid()) {
-            throw new IllegalStateException("This order has already been paid.");
+            throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID);
         }
 
         order.setPaid(true);
@@ -294,7 +269,7 @@ public class OrderService {
     @Transactional
     public void deleteAllOrdersByTable(Long tableId) {
         RestaurantTable table = restaurantTableRepository.findById(tableId)
-                .orElseThrow(() -> new IllegalArgumentException("RestaurantTable not found with ID: " + tableId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "RestaurantTable not found with ID: " + tableId));
         List<Order> ordersToCancel = orderRepository.findByRestaurantTableId(tableId);
         if (ordersToCancel.isEmpty()) {
             return;
