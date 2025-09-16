@@ -1,5 +1,6 @@
 package com.servease.demo.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.servease.demo.model.enums.OrderItemStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,6 +21,7 @@ public class OrderItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonBackReference
     private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY)

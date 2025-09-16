@@ -1,5 +1,6 @@
 package com.servease.demo.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.servease.demo.model.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -42,6 +43,7 @@ public class Order {
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonManagedReference
     private List<OrderItem> orderItems = new ArrayList<>();
 
 
