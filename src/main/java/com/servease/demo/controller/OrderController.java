@@ -3,7 +3,6 @@ package com.servease.demo.controller;
 import com.servease.demo.dto.request.OrderCreateRequest;
 import com.servease.demo.dto.request.OrderItemRequest;
 import com.servease.demo.dto.request.OrderItemQuantityUpdateRequest;
-import com.servease.demo.dto.request.OrderItemStatusUpdateRequest;
 import com.servease.demo.dto.response.OrderResponse;
 import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.service.OrderService;
@@ -70,15 +69,6 @@ public class OrderController {
     public ResponseEntity<OrderResponse> cancelOrderById(@PathVariable Long orderId) {
         OrderResponse canceledOrder = orderService.cancelOrder(orderId);
         return ResponseEntity.ok(canceledOrder);
-    }
-
-    @PatchMapping("/{orderId}/items/{orderItemId}/status")
-    public ResponseEntity<OrderResponse> updateOrderItemStatus(
-            @PathVariable Long orderId,
-            @PathVariable Long orderItemId,
-            @RequestBody @Valid OrderItemStatusUpdateRequest request) {
-        OrderResponse updatedOrder = orderService.updateOrderItemStatus(orderId, orderItemId, request.getNewStatus());
-        return ResponseEntity.ok(updatedOrder);
     }
 
     @DeleteMapping("/{orderId}/items/{orderItemId}")

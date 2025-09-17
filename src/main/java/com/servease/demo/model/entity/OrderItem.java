@@ -1,7 +1,6 @@
 package com.servease.demo.model.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.servease.demo.model.enums.OrderItemStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -33,10 +32,6 @@ public class OrderItem {
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
-
-    @Column(name = "status", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private OrderItemStatus status;
 
 
 }

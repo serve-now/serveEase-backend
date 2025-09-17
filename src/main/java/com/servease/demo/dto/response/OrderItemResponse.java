@@ -1,7 +1,6 @@
 package com.servease.demo.dto.response;
 
 import com.servease.demo.model.entity.OrderItem;
-import com.servease.demo.model.enums.OrderItemStatus;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,7 +15,6 @@ public class OrderItemResponse {
     private String menuName;
     private int quantity;
     private int itemPrice;
-    private OrderItemStatus status;
 
     public static OrderItemResponse fromEntity(OrderItem orderItem) {
         if (orderItem == null || orderItem.getMenu() == null) {
@@ -29,7 +27,6 @@ public class OrderItemResponse {
                 .menuName(orderItem.getMenu().getName())
                 .quantity(orderItem.getQuantity())
                 .itemPrice(orderItem.getItemPrice())
-                .status(orderItem.getStatus())
                 .build();
     }
 }

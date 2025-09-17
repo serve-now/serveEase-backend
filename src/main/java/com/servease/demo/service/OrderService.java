@@ -9,7 +9,6 @@ import com.servease.demo.model.entity.Menu;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.OrderItem;
 import com.servease.demo.model.entity.RestaurantTable;
-import com.servease.demo.model.enums.OrderItemStatus;
 import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.model.enums.RestaurantTableStatus;
 import com.servease.demo.repository.MenuRepository;
@@ -68,7 +67,6 @@ public class OrderService {
                     .menu(menu)
                     .quantity(itemRequest.getQuantity())
                     .itemPrice(menu.getPrice())
-                    .status(OrderItemStatus.IN_COOKING)
                     .build();
 
             newOrder.addOrderItem(orderItem);
@@ -132,7 +130,6 @@ public class OrderService {
                     .menu(menu)
                     .quantity(itemRequest.getQuantity())
                     .itemPrice(menu.getPrice())
-                    .status(OrderItemStatus.IN_COOKING) // 새로 추가된 항목은 항상 '조리 중' 상태
                     .build();
             order.addOrderItem(newOrderItem);
         }
@@ -197,7 +194,6 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.CANCELED);
-        order.getOrderItems().forEach(item -> item.setStatus(OrderItemStatus.CANCELED));
 
         RestaurantTable restaurantTable = order.getRestaurantTable();
         restaurantTable.updateStatus(RestaurantTableStatus.EMPTY);
@@ -207,36 +203,36 @@ public class OrderService {
         return OrderResponse.fromEntity(canceledOrder);
     }
 
-    @Transactional
-    public OrderResponse updateOrderItemStatus(Long orderId, Long orderItemId, OrderItemStatus newStatus) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND, "Order not found with ID: " + orderId));
-
-
-        OrderItem targetItem = order.getOrderItems().stream()
-                .filter(item -> item.getId().equals(orderItemId))
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND, "Order not found with ID: " + orderId));
-
-        targetItem.setStatus(newStatus);
-
-        //모든 음식이 다 서빙되었는지 status 변경 있을 때마다 확인
-        boolean allItemServed = order.getOrderItems().stream()
-                .allMatch(item -> item.getStatus() == OrderItemStatus.SERVED);
-
-
-        if (allItemServed) {
-            if (order.isPaid()) {
-                order.setStatus(OrderStatus.COMPLETED);
-            } else {
-                order.setStatus(OrderStatus.SERVED);
-            }
-
-        }
-
-        Order updatedOrder = orderRepository.save(order);
-        return OrderResponse.fromEntity(updatedOrder);
-    }
+//    @Transactional
+//    public OrderResponse updateOrderItemStatus(Long orderId, Long orderItemId, OrderItemStatus newStatus) {
+//        Order order = orderRepository.findById(orderId)
+//                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND, "Order not found with ID: " + orderId));
+//
+//
+//        OrderItem targetItem = order.getOrderItems().stream()
+//                .filter(item -> item.getId().equals(orderItemId))
+//                .findFirst()
+//                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND, "Order not found with ID: " + orderId));
+//
+//        targetItem.setStatus(newStatus);
+//
+//        //모든 음식이 다 서빙되었는지 status 변경 있을 때마다 확인
+//        boolean allItemServed = order.getOrderItems().stream()
+//                .allMatch(item -> item.getStatus() == OrderItemStatus.SERVED);
+//
+//
+//        if (allItemServed) {
+//            if (order.isPaid()) {
+//                order.setStatus(OrderStatus.COMPLETED);
+//            } else {
+//                order.setStatus(OrderStatus.SERVED);
+//            }
+//
+//        }
+//
+//        Order updatedOrder = orderRepository.save(order);
+//        return OrderResponse.fromEntity(updatedOrder);
+//    }
 
     //선결제 하는 경우는 payment 와 분리
     @Transactional
@@ -252,16 +248,12 @@ public class OrderService {
         }
 
         order.setPaid(true);
+        order.setStatus(OrderStatus.COMPLETED);
 
-        if (order.getStatus() == OrderStatus.SERVED) {
-            order.setStatus(OrderStatus.COMPLETED);
-
-            //결제가 완료되면 EMPTY 로 변경
-            RestaurantTable table = order.getRestaurantTable();
-            if (table.getStatus() == RestaurantTableStatus.USING) {
-                table.updateStatus(RestaurantTableStatus.EMPTY);
-                restaurantTableRepository.save(table);
-            }
+        //결제가 완료되면 주문이 종결 -> 테이블 상태를 EMPTY 로 변경
+        RestaurantTable table = order.getRestaurantTable();
+        if (table.getStatus() == RestaurantTableStatus.USING) {
+            table.updateStatus(RestaurantTableStatus.EMPTY);
         }
 
         Order updatedOrder = orderRepository.save(order);
@@ -280,13 +272,27 @@ public class OrderService {
         for (Order order : ordersToCancel) {
             if (order.getStatus() != OrderStatus.COMPLETED && order.getStatus() != OrderStatus.CANCELED) {
                 order.setStatus(OrderStatus.CANCELED);
-                order.getOrderItems().forEach(item -> item.setStatus(OrderItemStatus.CANCELED));
                 orderRepository.save(order);
             }
         }
 
         table.setStatus(RestaurantTableStatus.EMPTY);
         restaurantTableRepository.save(table);
+    }
+
+    @Transactional
+    public OrderResponse markOrderAsServed(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID: " + orderId));
+
+        if (order.getStatus() != OrderStatus.RECEIVED) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Order status must be RECEIVED to be marked as SERVED. Current status: " + order.getStatus());
+        }
+
+        order.setStatus(OrderStatus.SERVED);
+
+        Order updatedOrder = orderRepository.save(order);
+        return OrderResponse.fromEntity(updatedOrder);
     }
 
 }
