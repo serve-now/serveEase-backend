@@ -6,6 +6,7 @@ import com.servease.demo.dto.response.RestaurantTableResponse;
 import com.servease.demo.service.OrderService;
 import com.servease.demo.service.RestaurantTableService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,9 +27,10 @@ public class RestaurantTableController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RestaurantTableResponse>> getAllTables() {
-        List<RestaurantTableResponse> tableResponses = restaurantTableService.getAllTables();
-        return ResponseEntity.ok(tableResponses);
+    public ResponseEntity<Page<RestaurantTableResponse>> getAllTables(@RequestParam(value = "page", defaultValue = "0") int page,
+                                                                      @RequestParam(value = "size", defaultValue = "12") int size) {
+        Page<RestaurantTableResponse> tablePage = restaurantTableService.getAllTables(page, size);
+        return ResponseEntity.ok(tablePage);
     }
 
 
