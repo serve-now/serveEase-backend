@@ -15,6 +15,7 @@ import com.servease.demo.repository.MenuRepository;
 import com.servease.demo.repository.OrderRepository;
 import com.servease.demo.repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -122,48 +123,42 @@ public class OrderService {
             Menu menu = menuRepository.findById(itemRequest.getMenuId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.MENU_NOT_FOUND, "Menu item not found with ID: " + itemRequest.getMenuId()));
 
-            if (!menu.isAvailable()) { // 수량 검증은 DTO에서 @Min으로
+            if (!menu.isAvailable()) {
                 throw new BusinessException(ErrorCode.MENU_NOT_AVAILABLE, " Menu item " + menu.getName() + "is not available.");
             }
 
-            OrderItem newOrderItem = OrderItem.builder()
-                    .menu(menu)
-                    .quantity(itemRequest.getQuantity())
-                    .itemPrice(menu.getPrice())
-                    .build();
-            order.addOrderItem(newOrderItem);
+            Optional<OrderItem> existingItemOpt = order.getOrderItems().stream()
+                    .filter(item -> item.getMenu().getId().equals(itemRequest.getMenuId()))
+                    .findFirst();
+
+            if(existingItemOpt.isPresent()) {
+                OrderItem existingItem = existingItemOpt.get();
+                int newQuantity = existingItem.getQuantity() + itemRequest.getQuantity();
+
+                if(newQuantity > 0) {
+                    existingItem.setQuantity(newQuantity);
+                } else {
+                    order.removeOrderItem(existingItem);
+                }
+
+            } else { //새로운 아이템을 추가하는 경우
+                if(itemRequest.getQuantity() > 0) {
+                    OrderItem newOrderItem = OrderItem.builder()
+                            .menu(menu)
+                            .quantity(itemRequest.getQuantity())
+                            .itemPrice(menu.getPrice())
+                            .build();
+                    order.addOrderItem(newOrderItem);
+                } else {
+                    // 새로운 아이템을 추가하는데 -> 아이템 수량이 음수이거나 0인 경우 에러 던지기
+                    throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                            "Cannot add a new item with zero or negative quantity: " + menu.getName());
+                }
+            }
         }
 
         if (order.getStatus() == OrderStatus.SERVED) {
             order.setStatus(OrderStatus.RECEIVED);
-        }
-
-        order.calculateTotalPrice();
-
-        Order updatedOrder = orderRepository.save(order);
-        return OrderResponse.fromEntity(updatedOrder);
-    }
-
-
-    //order 에서 수량만 변경
-    @Transactional
-    public OrderResponse updateOrderItemQuantity(Long orderId, Long orderItemId, int newQuantity) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID: " + orderId));
-
-        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot modify a completed or canceled order.");
-        }
-
-        OrderItem targetItem = order.getOrderItems().stream()
-                .filter(item -> item.getId().equals(orderItemId))
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND, "OrderItem with ID " + orderItemId + " not found in this order."));
-
-        if (newQuantity == 0) {
-            order.removeItemById(orderItemId);
-        } else {
-            targetItem.setQuantity(newQuantity);
         }
 
         order.calculateTotalPrice();
@@ -203,36 +198,6 @@ public class OrderService {
         return OrderResponse.fromEntity(canceledOrder);
     }
 
-//    @Transactional
-//    public OrderResponse updateOrderItemStatus(Long orderId, Long orderItemId, OrderItemStatus newStatus) {
-//        Order order = orderRepository.findById(orderId)
-//                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND, "Order not found with ID: " + orderId));
-//
-//
-//        OrderItem targetItem = order.getOrderItems().stream()
-//                .filter(item -> item.getId().equals(orderItemId))
-//                .findFirst()
-//                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND, "Order not found with ID: " + orderId));
-//
-//        targetItem.setStatus(newStatus);
-//
-//        //모든 음식이 다 서빙되었는지 status 변경 있을 때마다 확인
-//        boolean allItemServed = order.getOrderItems().stream()
-//                .allMatch(item -> item.getStatus() == OrderItemStatus.SERVED);
-//
-//
-//        if (allItemServed) {
-//            if (order.isPaid()) {
-//                order.setStatus(OrderStatus.COMPLETED);
-//            } else {
-//                order.setStatus(OrderStatus.SERVED);
-//            }
-//
-//        }
-//
-//        Order updatedOrder = orderRepository.save(order);
-//        return OrderResponse.fromEntity(updatedOrder);
-//    }
 
     //선결제 하는 경우는 payment 와 분리
     @Transactional

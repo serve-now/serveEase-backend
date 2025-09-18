@@ -57,13 +57,6 @@ public class OrderController {
         return ResponseEntity.ok(updatedOrder);
     }
 
-    // 기존 주문 항목의 수량을 변경 (Update)
-    @PatchMapping("/{orderId}/items/{orderItemId}")
-    public ResponseEntity<OrderResponse> updateOrderItemQuantity(@PathVariable Long orderId, @PathVariable Long orderItemId, @RequestBody @Valid OrderItemQuantityUpdateRequest request) {
-        OrderResponse updatedOrder = orderService.updateOrderItemQuantity(orderId, orderItemId, request.getNewQuantity());
-        return ResponseEntity.ok(updatedOrder);
-    }
-
 
     @PatchMapping("/{orderId}/cancel")
     public ResponseEntity<OrderResponse> cancelOrderById(@PathVariable Long orderId) {
