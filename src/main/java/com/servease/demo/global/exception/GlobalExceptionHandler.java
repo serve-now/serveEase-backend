@@ -6,24 +6,30 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.View;
 
 import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private final View error;
+
+    public GlobalExceptionHandler(View error) {
+        this.error = error;
+    }
+
     //우리가 정의한 비즈니스 예외시 여기로
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleBusiness(BusinessException businessException) {
-        ErrorCode errorCode = businessException.getErrorCode();
-
-        ErrorResponse body = ErrorResponse.of(
-                errorCode.getStatus().value(), //"E002"
-                errorCode.getCode(),           //"메뉴를 찾을 수 없습니다"
-                errorCode.getMessage(),        // detail (기본 or 커스텀)
-                businessException.getDetail()
+    protected ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {
+        final ErrorCode errorCode = e.getErrorCode();
+        final ErrorResponse response = ErrorResponse.of(
+                errorCode.getStatus().value(),
+                errorCode.getCode(),
+                errorCode.getMessage(),
+                e.getDetail()
         );
-        return ResponseEntity.status(errorCode.getStatus()).body(body);
+        return new ResponseEntity<>(response, errorCode.getStatus());
     }
 
 
