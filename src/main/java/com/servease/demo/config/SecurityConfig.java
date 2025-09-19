@@ -1,4 +1,4 @@
-package com.servease.demo.Config;
+package com.servease.demo.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
