@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -30,6 +30,10 @@ public class User extends BaseEntity implements UserDetails {
 
     @Column(nullable = false)
     private String username;
+
+    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Store> stores = new ArrayList<>();
+
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
