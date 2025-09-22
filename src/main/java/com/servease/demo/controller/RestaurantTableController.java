@@ -3,6 +3,8 @@ package com.servease.demo.controller;
 import com.servease.demo.dto.request.RestaurantTableCreateRequest;
 import com.servease.demo.dto.request.RestaurantTableStatusUpdateRequest;
 import com.servease.demo.dto.response.RestaurantTableResponse;
+import com.servease.demo.model.entity.Store;
+import com.servease.demo.repository.StoreRepository;
 import com.servease.demo.service.OrderService;
 import com.servease.demo.service.RestaurantTableService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/tables")
@@ -19,11 +20,13 @@ public class RestaurantTableController {
 
     private final OrderService orderService;
     private final RestaurantTableService restaurantTableService;
+    private final StoreRepository storeRepository;
 
     @Autowired
-    public RestaurantTableController(RestaurantTableService restaurantTableService, OrderService orderService) {
+    public RestaurantTableController(RestaurantTableService restaurantTableService, OrderService orderService, StoreRepository storeRepository) {
         this.restaurantTableService = restaurantTableService;
         this.orderService = orderService;
+        this.storeRepository = storeRepository;
     }
 
     @GetMapping
@@ -35,8 +38,8 @@ public class RestaurantTableController {
 
 
     @PostMapping
-    public ResponseEntity<RestaurantTableResponse> createTable(@RequestBody RestaurantTableCreateRequest request) {
-        RestaurantTableResponse newTable = restaurantTableService.createTable(request.getRestaurantTableNumber());
+    public ResponseEntity<RestaurantTableResponse> createTable(@RequestBody RestaurantTableCreateRequest request, Store store) {
+        RestaurantTableResponse newTable = restaurantTableService.createTable(request.getRestaurantTableNumber(), store);
         return ResponseEntity.status(HttpStatus.CREATED).body(newTable);
     }
 
