@@ -4,6 +4,7 @@ import com.servease.demo.dto.response.RestaurantTableResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.entity.RestaurantTable;
+import com.servease.demo.model.entity.Store;
 import com.servease.demo.model.enums.RestaurantTableStatus;
 import com.servease.demo.repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
@@ -37,13 +38,14 @@ public class RestaurantTableService {
     }
 
     @Transactional
-    public RestaurantTableResponse createTable(Integer tableNumber) {
-        if (restaurantTableRepository.findByTableNumber(tableNumber).isPresent()) {
+    public RestaurantTableResponse createTable(Integer tableNumber, Store store) {
+        if (restaurantTableRepository.findByStoreAndTableNumber(store, tableNumber).isPresent()) {
             throw new BusinessException(ErrorCode.DUPLICATE_TABLE_NUMBER, "Table number " + tableNumber + " already exists.");
         }
 
         RestaurantTable newTable = RestaurantTable.builder()
                 .tableNumber(tableNumber)
+                .store(store)
                 .status(RestaurantTableStatus.EMPTY)
                 .build();
 
