@@ -33,12 +33,15 @@ public class Store extends BaseEntity {
         this.name = name;
     }
 
-
     public static Store create(User owner, String name) {
         Store store = Store.builder()
+                .owner(owner)
                 .name(name)
                 .build();
-        store.setOwner(owner);
+
+        if (owner != null && !owner.getStores().contains(store)) {
+            owner.getStores().add(store);
+        }
         return store;
     }
 
@@ -49,7 +52,7 @@ public class Store extends BaseEntity {
 
         this.owner = owner;
 
-        // 새로운 owner의 stores 리스트에 자신을 추가
+        // 새로운 owner와의 관계 설정
         if (owner != null && !owner.getStores().contains(this)) {
             owner.getStores().add(this);
         }
