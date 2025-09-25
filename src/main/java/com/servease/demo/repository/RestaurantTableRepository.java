@@ -1,7 +1,6 @@
 package com.servease.demo.repository;
 
 import com.servease.demo.model.entity.RestaurantTable;
-import com.servease.demo.model.entity.Store;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,7 +17,7 @@ import java.util.Optional;
 public interface RestaurantTableRepository extends JpaRepository<RestaurantTable, Long> {
     Page<RestaurantTable> findAll(Pageable pageable);
 
-    Optional<RestaurantTable> findByStoreAndTableNumber(Store store, Integer tableNumber);
+    Optional<RestaurantTable> findByStoreIdAndTableNumber(Long storeId, Integer tableNumber);
 
     Optional<RestaurantTable> findByTableNumber(Integer tableNumber);
 
