@@ -41,8 +41,8 @@ public class OrderService {
         RestaurantTable targetTable = restaurantTableRepository.findByIdWithLock(initialTable.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Could not acquire lock for table: " + initialTable.getTableNumber()));
 
-        orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.RECEIVED, OrderStatus.SERVED));
-        Optional<Order> activeOrderOpt = orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.RECEIVED, OrderStatus.SERVED));
+        orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.ORDERED, OrderStatus.SERVED));
+        Optional<Order> activeOrderOpt = orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.ORDERED, OrderStatus.SERVED));
 
         if (activeOrderOpt.isPresent()) {
             throw new BusinessException(ErrorCode.ACTIVE_ORDER_EXISTS,
@@ -52,7 +52,7 @@ public class OrderService {
 
         Order newOrder = Order.builder()
                 .restaurantTable(targetTable)
-                .status(OrderStatus.RECEIVED)
+                .status(OrderStatus.)
                 .isPaid(false)
                 .build();
 
@@ -84,7 +84,7 @@ public class OrderService {
         if (status != null) {
             orders = orderRepository.findAllByStatusIn(List.of(status));
         } else {
-            orders = orderRepository.findAllByStatusIn(List.of(OrderStatus.RECEIVED, OrderStatus.SERVED));
+            orders = orderRepository.findAllByStatusIn(List.of(OrderStatus.ORDERED, OrderStatus.SERVED));
         }
 
         return orders.stream()
@@ -158,7 +158,7 @@ public class OrderService {
         }
 
         if (order.getStatus() == OrderStatus.SERVED) {
-            order.setStatus(OrderStatus.RECEIVED);
+            order.setStatus(OrderStatus.ORDERED);
         }
 
         order.calculateTotalPrice();
@@ -250,8 +250,8 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID: " + orderId));
 
-        if (order.getStatus() != OrderStatus.RECEIVED) {
-            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Order status must be RECEIVED to be marked as SERVED. Current status: " + order.getStatus());
+        if (order.getStatus() != OrderStatus.ORDERED) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Order status must be ORDERED to be marked as SERVED. Current status: " + order.getStatus());
         }
 
         order.setStatus(OrderStatus.SERVED);

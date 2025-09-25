@@ -14,7 +14,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByRestaurantTableIdAndStatusIn(Long restaurantTableId, Collection<OrderStatus> statuses);
 
-    // active : RECEIVED, IN_PROGRESS
+    // active : ORDERED, IN_PROGRESS
     // inactive : CANCELED
     List<Order> findAllByStatusIn(Collection<OrderStatus> statuses);
 }
