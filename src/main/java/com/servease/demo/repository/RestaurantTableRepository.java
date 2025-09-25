@@ -17,9 +17,12 @@ import java.util.Optional;
 public interface RestaurantTableRepository extends JpaRepository<RestaurantTable, Long> {
     Page<RestaurantTable> findAll(Pageable pageable);
 
+    Optional<RestaurantTable> findByStoreIdAndTableNumber(Long storeId, Integer tableNumber);
+
     Optional<RestaurantTable> findByTableNumber(Integer tableNumber);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM RestaurantTable t WHERE t.id = :id")
     Optional<RestaurantTable> findByIdWithLock(@Param("id") Long id);
+
 }

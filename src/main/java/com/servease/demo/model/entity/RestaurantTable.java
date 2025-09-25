@@ -8,7 +8,6 @@ import lombok.*;
 @Entity
 @Table(name = "restaurant_tables")
 @Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -17,9 +16,14 @@ public class RestaurantTable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "restaurant_table_number", nullable = false, unique = true, length = 10)
+    @Column(name = "restaurant_table_number", nullable = false)
     private Integer tableNumber;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name= "store_id")
+    private Store store;
+
+    @Setter
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private RestaurantTableStatus status;

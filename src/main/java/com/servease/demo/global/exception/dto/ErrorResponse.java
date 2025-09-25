@@ -11,7 +11,6 @@ import java.util.List;
 @Getter
 @Builder
 public class ErrorResponse {
-    private final int status; //HTTP 응답
     private final String errorCode; //비즈니스 에러코드
     private final String title;
     private final String detail; //error.message
@@ -23,7 +22,6 @@ public class ErrorResponse {
 
     public static ErrorResponse of(int status, String code, String title, String detail) {
         return ErrorResponse.builder()
-                .status(status)
                 .errorCode(code)
                 .title(title)
                 .detail(detail)
@@ -34,7 +32,6 @@ public class ErrorResponse {
     public static ErrorResponse of(int status, String code, String title, String detail,
                                    List<FieldErrorItem> errors) {
         return ErrorResponse.builder()
-                .status(status)
                 .errorCode(code)
                 .title(title)
                 .detail(detail)
@@ -42,7 +39,6 @@ public class ErrorResponse {
                 .errors(errors)
                 .build();
     }
-
 
     @Getter
     @Builder
