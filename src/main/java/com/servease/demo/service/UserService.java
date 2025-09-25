@@ -1,7 +1,7 @@
 package com.servease.demo.service;
 
 import com.servease.demo.dto.request.UserSignUpRequest;
-import com.servease.demo.dto.response.UserRegisterResponse;
+import com.servease.demo.dto.response.UserSignupResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.entity.Store;
@@ -34,11 +34,10 @@ public class UserService implements UserDetailsService {
     }
 
     @Transactional
-    public UserRegisterResponse signUp(UserSignUpRequest request) {
+    public UserSignupResponse signUp(UserSignUpRequest request) {
         userRepository.findByLoginId(request.getLoginId()).ifPresent(user -> {
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
         });
-
 
         User newUser = User.builder()
                 .loginId(request.getLoginId())
@@ -47,14 +46,13 @@ public class UserService implements UserDetailsService {
                 .phoneNumber(request.getPhoneNumber())
                 .build();
 
-
+        userRepository.save(newUser);
         Store newStore = storeService.createStore(request.getStoreName(), newUser);
 
-        for (int i = 1; i <= request.getTableCount(); i++) {
-            restaurantTableService.createTable(i, newStore);
-        }
-        userRepository.save(newUser);
-        return UserRegisterResponse.from(newUser, newStore.getName());
+        restaurantTableService.createTablesForStore(newStore, request.getTableCount());
+        return UserSignupResponse.from(newUser, newStore.getName());
     }
+
+
 
 }

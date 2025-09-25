@@ -6,14 +6,14 @@ import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-public class UserRegisterResponse {
+public class UserSignupResponse {
     private Long userId;
     private String loginId;
     private String username;
     private String storeName;
 
-    public static UserRegisterResponse from(User user, String StoreName) {
-        return new UserRegisterResponse(
+    public static UserSignupResponse from(User user, String StoreName) {
+        return new UserSignupResponse(
                 user.getId(),
                 user.getLoginId(),
                 user.getUsername(),
