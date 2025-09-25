@@ -52,7 +52,7 @@ public class OrderService {
 
         Order newOrder = Order.builder()
                 .restaurantTable(targetTable)
-                .status(OrderStatus.)
+                .status(OrderStatus.ORDERED)
                 .isPaid(false)
                 .build();
 
