@@ -19,6 +19,8 @@ public enum ErrorCode {
     TABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "E010", "테이블을 찾을 수 없습니다."),
     ORDER_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "E012", "해당 주문 항목을 찾을 수 없습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND,"E016","해당 유저를 찾을 수 없습니다."),
+    STORE_NOT_FOUND(HttpStatus.NOT_FOUND,"E017","해당 가게를 찾을 수 없습니다."),
+
 
     // 409 Conflict
     DUPLICATE_MENU_NAME(HttpStatus.CONFLICT, "E005", "이미 존재하는 메뉴 이름입니다."),
