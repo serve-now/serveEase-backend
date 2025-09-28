@@ -44,17 +44,4 @@ public class Store extends BaseEntity {
         }
         return store;
     }
-
-    public void setOwner(User owner) {
-        if (this.owner != null) {
-            this.owner.getStores().remove(this);
-        }
-
-        this.owner = owner;
-
-        // 새로운 owner와의 관계 설정
-        if (owner != null && !owner.getStores().contains(this)) {
-            owner.getStores().add(this);
-        }
-    }
 }

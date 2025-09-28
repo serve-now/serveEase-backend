@@ -2,7 +2,6 @@ package com.servease.demo.dto.response;
 
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.RestaurantTable;
-import com.servease.demo.model.enums.RestaurantTableStatus;
 import com.servease.demo.model.enums.OrderStatus;
 import lombok.*;
 
@@ -44,33 +43,4 @@ public class RestaurantTableResponse {
                 .activeOrder(activeOrderResponse)
                 .build();
     }
-
-    public static RestaurantTableResponse fromEntity(RestaurantTable restaurantTable, OrderStatus latestOrderStatus){
-        if (restaurantTable == null) {
-            return null;
-        }
-
-        String display;
-        if (restaurantTable.getStatus() == RestaurantTableStatus.EMPTY) {
-            display = "EMPTY";
-        } else {
-            if (latestOrderStatus == null) {
-                display = "USING";
-            } else {
-                switch (latestOrderStatus) {
-                    case ORDERED -> display = "ORDERED";
-                    case SERVED  -> display = "SERVED";
-                    case COMPLETED, CANCELED -> display = "EMPTY";
-                    default -> display = "USING";
-                }
-            }
-        }
-
-        return RestaurantTableResponse.builder()
-                .id(restaurantTable.getId())
-                .restaurantTableNumber(restaurantTable.getTableNumber())
-                .displayStatus(display)
-                .build();
-    }
-
 }

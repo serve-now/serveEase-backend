@@ -49,7 +49,7 @@ public class User extends BaseEntity implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        //SpringSecurity: 사용자의 권한 목록은 무엇인가요? -> 현재 권한 없음 (role 이 없음)
+        //SpringSecurity: 사용자의 권한 목록은 무엇인가요? -> 현재 권한 없음 (role 이 없음 걍 다 동등 ㅇㅋ)
         return List.of();
     }
 
@@ -64,6 +64,10 @@ public class User extends BaseEntity implements UserDetails {
         //SpringSecurity: 사용자를 식별할 고유 ID는 무엇인가요?
         return this.loginId;
     }
+//
+//    public void addStore(Store store) {
+//        this.stores.add(store);
+//    }
 
     //계정 상태 관리
     @Override
