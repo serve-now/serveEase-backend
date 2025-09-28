@@ -4,8 +4,8 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.servease.demo.model.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.boot.model.naming.IllegalIdentifierException;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -41,6 +41,7 @@ public class Order {
     @Column(name = "order_time", nullable = false)
     private LocalDateTime orderTime;
 
+    @BatchSize(size = 100)
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @JsonManagedReference
