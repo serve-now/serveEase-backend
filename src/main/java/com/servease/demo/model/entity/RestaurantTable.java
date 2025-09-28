@@ -4,6 +4,9 @@ import com.servease.demo.model.enums.RestaurantTableStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 
 @Entity
 @Table(name = "restaurant_tables")
@@ -27,6 +30,11 @@ public class RestaurantTable {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private RestaurantTableStatus status;
+
+    @OneToMany(mappedBy = "restaurantTable", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Order> orders = new ArrayList<>();
+
 
     public void updateStatus(RestaurantTableStatus newStatus) {
         this.status = newStatus;
