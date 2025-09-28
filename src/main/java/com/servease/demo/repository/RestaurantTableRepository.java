@@ -11,11 +11,13 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface RestaurantTableRepository extends JpaRepository<RestaurantTable, Long> {
-    Page<RestaurantTable> findAll(Pageable pageable);
+
+    Page<RestaurantTable> findAllByStoreId(Long storeId, Pageable pageable);
 
     Optional<RestaurantTable> findByStoreIdAndTableNumber(Long storeId, Integer tableNumber);
 
@@ -24,5 +26,13 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM RestaurantTable t WHERE t.id = :id")
     Optional<RestaurantTable> findByIdWithLock(@Param("id") Long id);
+
+    @Query("SELECT DISTINCT t FROM RestaurantTable t " +
+            "LEFT JOIN FETCH t.orders o " +
+            //"LEFT JOIN FETCH o.orderItems oi " +
+            "WHERE t.id IN :ids " +
+            "AND (o.status = 'ORDERED' OR o.status = 'SERVED' OR o IS NULL) " +
+            "ORDER BY t.tableNumber ASC")
+    List<RestaurantTable> findAllWithActiveOrdersByIds(@Param("ids") List<Long> ids);
 
 }
