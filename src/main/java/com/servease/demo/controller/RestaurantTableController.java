@@ -3,6 +3,8 @@ package com.servease.demo.controller;
 import com.servease.demo.dto.request.RestaurantTableCreateRequest;
 import com.servease.demo.dto.request.RestaurantTableStatusUpdateRequest;
 import com.servease.demo.dto.response.RestaurantTableResponse;
+import com.servease.demo.global.exception.BusinessException;
+import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.entity.Store;
 import com.servease.demo.repository.StoreRepository;
 import com.servease.demo.service.OrderService;
@@ -15,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 
 @RestController
-@RequestMapping("/api/tables")
+@RequestMapping("/api/stores/{storeId}/tables")
 public class RestaurantTableController {
 
     private final OrderService orderService;
@@ -30,26 +32,31 @@ public class RestaurantTableController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<RestaurantTableResponse>> getAllTables(@RequestParam(value = "page", defaultValue = "0") int page,
+    public ResponseEntity<Page<RestaurantTableResponse>> getAllTables(@PathVariable Long storeId,
+                                                                      @RequestParam(value = "page", defaultValue = "0") int page,
                                                                       @RequestParam(value = "size", defaultValue = "12") int size) {
-        Page<RestaurantTableResponse> tablePage = restaurantTableService.getAllTables(page, size);
+        Page<RestaurantTableResponse> tablePage = restaurantTableService.getAllTablesByStore(storeId, page, size);
         return ResponseEntity.ok(tablePage);
     }
 
 
     @PostMapping
-    public ResponseEntity<RestaurantTableResponse> createTable(@RequestBody RestaurantTableCreateRequest request, Store store) {
+    public ResponseEntity<RestaurantTableResponse> createTable(
+            @PathVariable Long storeId,
+            @RequestBody RestaurantTableCreateRequest request) {
+        Store store = storeRepository.findById(storeId)
+                .orElseThrow(()-> new BusinessException(ErrorCode.STORE_NOT_FOUND));
         RestaurantTableResponse newTable = restaurantTableService.createTable(request.getRestaurantTableNumber(), store);
         return ResponseEntity.status(HttpStatus.CREATED).body(newTable);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{tableId}")
     public ResponseEntity<RestaurantTableResponse> updateTableStatus(@PathVariable Long id, @RequestBody RestaurantTableStatusUpdateRequest request) {
         RestaurantTableResponse updatedTable = restaurantTableService.updateTableStatus(id, request.getStatus());
         return ResponseEntity.ok(updatedTable);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{tableId}")
     public ResponseEntity<Void> deleteTable(@PathVariable Long id) {
         restaurantTableService.deleteTable(id);
         return ResponseEntity.noContent().build();

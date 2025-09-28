@@ -6,13 +6,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByRestaurantTableId(Long restaurantTableId);
 
-    Optional<Order> findByRestaurantTableIdAndStatusIn(Long restaurantTableId, Collection<OrderStatus> statuses);
+    List<Order> findByRestaurantTableIdAndStatusIn(Long restaurantTableId, Collection<OrderStatus> statuses);
 
     // active : ORDERED, IN_PROGRESS
     // inactive : CANCELED

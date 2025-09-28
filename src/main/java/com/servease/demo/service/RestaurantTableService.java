@@ -8,15 +8,13 @@ import com.servease.demo.model.entity.Store;
 import com.servease.demo.model.enums.RestaurantTableStatus;
 import com.servease.demo.repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -64,10 +62,25 @@ public class RestaurantTableService {
     }
 
 
-    public Page<RestaurantTableResponse> getAllTables(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
-        Page<RestaurantTable> tablePage = restaurantTableRepository.findAll(pageable);
-        return tablePage.map(RestaurantTableResponse::fromEntity);
+    public Page<RestaurantTableResponse> getAllTablesByStore(Long storeId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("tableNumber").ascending());
+        Page<RestaurantTable> tablePage = restaurantTableRepository.findAllByStoreId(storeId, pageable);
+
+        if (!tablePage.hasContent()) {
+            return Page.empty(pageable);
+        }
+
+        List<Long> tableIds = tablePage.getContent().stream()
+                .map(RestaurantTable::getId)
+                .collect(Collectors.toList());
+
+        List<RestaurantTable> tablesWithDetails = restaurantTableRepository.findAllWithActiveOrdersByIds(tableIds);
+
+        List<RestaurantTableResponse> dtos = tablesWithDetails.stream()
+                .map(RestaurantTableResponse::fromEntity)
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(dtos, pageable, tablePage.getTotalElements());
     }
 
     public RestaurantTableResponse getTableById(Long id) {
@@ -75,7 +88,6 @@ public class RestaurantTableService {
                 .map(RestaurantTableResponse::fromEntity)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table with ID " + id + " not found."));
     }
-
 
     @Transactional
     public RestaurantTableResponse updateTableStatus(Long id, RestaurantTableStatus newStatus) {

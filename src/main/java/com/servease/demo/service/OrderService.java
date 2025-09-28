@@ -34,17 +34,16 @@ public class OrderService {
 
 
     @Transactional
-    public OrderResponse createOrder(OrderCreateRequest request) {
-        RestaurantTable initialTable = restaurantTableRepository.findByTableNumber(request.getRestaurantTableNumber())
+    public OrderResponse createOrder(Long storeId, OrderCreateRequest request) {
+        RestaurantTable initialTable = restaurantTableRepository.findByStoreIdAndTableNumber(storeId, request.getRestaurantTableNumber())
                 .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table number " + request.getRestaurantTableNumber() + " does not exist."));
 
         RestaurantTable targetTable = restaurantTableRepository.findByIdWithLock(initialTable.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Could not acquire lock for table: " + initialTable.getTableNumber()));
 
-        orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.ORDERED, OrderStatus.SERVED));
-        Optional<Order> activeOrderOpt = orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.ORDERED, OrderStatus.SERVED));
 
-        if (activeOrderOpt.isPresent()) {
+        List<Order> activeOrders = orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.ORDERED, OrderStatus.SERVED));
+        if (!activeOrders.isEmpty()) {
             throw new BusinessException(ErrorCode.ACTIVE_ORDER_EXISTS,
                     "An active order already exists for table " + targetTable.getTableNumber());
         }
@@ -75,6 +74,7 @@ public class OrderService {
         newOrder.calculateTotalPrice();
 
         Order savedOrder = orderRepository.save(newOrder);
+        targetTable.setStatus(RestaurantTableStatus.USING);
         return OrderResponse.fromEntity(savedOrder);
     }
 
