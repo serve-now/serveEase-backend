@@ -1,6 +1,8 @@
 package com.servease.demo.model.entity;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.servease.demo.global.exception.BusinessException;
+import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -66,13 +68,13 @@ public class Order {
 
     public void removeItemById(Long orderItemId){
         if (this.status == OrderStatus.COMPLETED || this.status == OrderStatus.CANCELED) {
-            throw new IllegalStateException("Cannot remove items from a completed or canceled order.");
+            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot remove items from a completed or canceled order.");
         }
 
         OrderItem itemToRemove = this.orderItems.stream()
                 .filter(item -> item.getId().equals(orderItemId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("OrderItem with ID " +orderItemId +" not found in this order."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND, "OrderItem with ID " + orderItemId + " not found in this order."));
 
         this.removeOrderItem(itemToRemove);
         this.calculateTotalPrice();
