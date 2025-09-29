@@ -19,9 +19,10 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
 
     Page<RestaurantTable> findAllByStoreId(Long storeId, Pageable pageable);
 
+    List<RestaurantTable> findAllByStoreId(Long storeId);
+
     Optional<RestaurantTable> findByStoreIdAndTableNumber(Long storeId, Integer tableNumber);
 
-    Optional<RestaurantTable> findByTableNumber(Integer tableNumber);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM RestaurantTable t WHERE t.id = :id")
