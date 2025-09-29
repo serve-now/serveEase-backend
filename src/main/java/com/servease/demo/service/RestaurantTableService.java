@@ -14,8 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 @Service
@@ -44,6 +46,53 @@ public class RestaurantTableService {
         }
         // 생성된 테이블 리스트를 한 번에 저장 (JPA가 최적화된 쿼리 실행해줌)
         restaurantTableRepository.saveAll(tables);
+    }
+
+
+    @Transactional
+    public void updateTableCount(Long storeId, int newTotalCount) {
+        if (newTotalCount <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "테이블 수는 1 이상이어야 합니다.");
+        }
+
+        Store store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORE_NOT_FOUND));
+
+        List<RestaurantTable> currentTables = restaurantTableRepository.findAllByStoreId(storeId);
+
+        boolean allTablesAreEmpty = currentTables.stream()
+                .allMatch(table -> table.getStatus() == RestaurantTableStatus.EMPTY);
+
+        if (!allTablesAreEmpty) {
+            throw new BusinessException(ErrorCode.TABLES_NOT_EMPTY, "사용 중인 테이블이 있어 작업할 수 없습니다.");
+        }
+
+        int currentCount = currentTables.size();
+
+        if (newTotalCount < currentCount) {
+            int tablesToRemoveCount = currentCount - newTotalCount;
+            currentTables.stream()
+                    .sorted(Comparator.comparing(RestaurantTable::getTableNumber).reversed())
+                    .limit(tablesToRemoveCount)
+                    .forEach(restaurantTableRepository::delete);
+
+        } else if (newTotalCount > currentCount) {
+            int tablesToAddCount = newTotalCount - currentCount;
+
+            int maxTableNumber = currentTables.stream()
+                    .mapToInt(RestaurantTable::getTableNumber)
+                    .max()
+                    .orElse(0);
+
+            IntStream.range(1, tablesToAddCount + 1)
+                    .mapToObj(i -> RestaurantTable.builder()
+                            .store(store)
+                            .tableNumber(maxTableNumber + i)
+                            .status(RestaurantTableStatus.EMPTY)
+                            .build())
+                    .forEach(restaurantTableRepository::save);
+        }
+        // newTotalCount == currentCount 인 경우는 아무 작업도 하지 않음
     }
 
 
@@ -89,11 +138,8 @@ public class RestaurantTableService {
         return new PageImpl<>(dtos, pageable, tablePage.getTotalElements());
     }
 
-    public RestaurantTableResponse getTableById(Long id) {
-        return restaurantTableRepository.findById(id)
-                .map(RestaurantTableResponse::fromEntity)
-                .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table with ID " + id + " not found."));
-    }
+
+
 
     @Transactional
     public RestaurantTableResponse updateTableStatus(Long id, RestaurantTableStatus newStatus) {

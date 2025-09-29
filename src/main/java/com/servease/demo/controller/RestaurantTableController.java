@@ -3,6 +3,7 @@ package com.servease.demo.controller;
 import com.servease.demo.dto.request.OrderCreateRequest;
 import com.servease.demo.dto.request.RestaurantTableCreateRequest;
 import com.servease.demo.dto.request.RestaurantTableStatusUpdateRequest;
+import com.servease.demo.dto.request.TableCountUpdateRequest;
 import com.servease.demo.dto.response.OrderResponse;
 import com.servease.demo.dto.response.RestaurantTableResponse;
 import com.servease.demo.repository.StoreRepository;
@@ -78,4 +79,15 @@ public class RestaurantTableController {
         orderService.deleteAllOrdersByTable(storeId, tableId);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/bulk-update")
+    public ResponseEntity<Void> updateTableCount(
+            @PathVariable Long storeId,
+            @Valid @RequestBody TableCountUpdateRequest request) {
+
+        restaurantTableService.updateTableCount(storeId, request.getNewTotalCount());
+        return ResponseEntity.noContent().build();
+    }
+
+
 }
