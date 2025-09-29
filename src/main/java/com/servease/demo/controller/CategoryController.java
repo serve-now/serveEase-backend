@@ -21,31 +21,32 @@ public class CategoryController {
     }
 
     @PostMapping
-    public ResponseEntity<CategoryResponse> createCategory(@Valid @RequestBody CategoryRequest request) {
-        CategoryResponse categoryResponse = categoryService.createCategory(request);
+    public ResponseEntity<CategoryResponse> createCategory(@PathVariable Long storeId, @Valid @RequestBody CategoryRequest request) {
+        CategoryResponse categoryResponse = categoryService.createCategory(storeId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(categoryResponse);
     }
 
     @GetMapping
-    public ResponseEntity<List<CategoryResponse>> getAllCategories() {
-        List<CategoryResponse> categoryResponses = categoryService.getAllCategories();
+    public ResponseEntity<List<CategoryResponse>> getAllCategoriesByStore(@PathVariable Long storeId) {
+        List<CategoryResponse> categoryResponses = categoryService.getAllCategoriesByStore(storeId);
         return ResponseEntity.ok(categoryResponses);
     }
 
     @PutMapping("/{categoryId}")
-    public ResponseEntity<CategoryResponse> updateCategory(@PathVariable Long categoryId, @Valid @RequestBody CategoryRequest request) {
-        CategoryResponse updatedCategory = categoryService.updateCategory(categoryId, request);
+    public ResponseEntity<CategoryResponse> updateCategory(
+            @PathVariable Long storeId,
+            @PathVariable Long categoryId,
+            @Valid @RequestBody CategoryRequest request) {
+        CategoryResponse updatedCategory = categoryService.updateCategory(storeId, categoryId, request);
         return ResponseEntity.ok(updatedCategory);
     }
 
     @DeleteMapping("/{categoryId}")
-    public ResponseEntity<Void> deleteCategory(@PathVariable Long categoryId) {
-        categoryService.deleteCategory(categoryId);
+    public ResponseEntity<Void> deleteCategory(
+            @PathVariable Long storeId,
+            @PathVariable Long categoryId) {
+        categoryService.deleteCategory(storeId, categoryId);
         return ResponseEntity.noContent().build();
     }
-
-
-
-
 
 }

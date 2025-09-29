@@ -22,42 +22,49 @@ public class MenuController {
     }
 
     @PostMapping
-    public ResponseEntity<MenuResponse> createMenu(@Valid @RequestBody MenuCreateRequest request) {
-        MenuResponse menuResponse = menuService.createMenu(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(menuResponse);
+    public ResponseEntity<MenuResponse> createMenu(@PathVariable Long storeId, @Valid @RequestBody MenuCreateRequest request) {
+        MenuResponse createdMenu = menuService.createMenu(storeId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdMenu);
     }
 
     @GetMapping
-    public ResponseEntity<List<MenuResponse>> getAllMenus() {
-        List<MenuResponse> menuResponses = menuService.getAllMenus();
+    public ResponseEntity<List<MenuResponse>> getAllMenusByStore(@PathVariable Long storeId) {
+        List<MenuResponse> menuResponses = menuService.getAllMenusByStore(storeId);
         return ResponseEntity.ok(menuResponses);
     }
 
-    //get available
+
     @GetMapping("/available")
-    public ResponseEntity<List<MenuResponse>> getAvailableMenus() {
-        List<MenuResponse> menuResponses = menuService.getAvailableMenus();
+    public ResponseEntity<List<MenuResponse>> getAvailableMenusByStore(@PathVariable Long storeId) {
+        List<MenuResponse> menuResponses = menuService.getAvailableMenusByStore(storeId);
         return ResponseEntity.ok(menuResponses);
     }
 
 
-    //get id
     @GetMapping("/{menuId}")
-    public ResponseEntity<MenuResponse> getMenuById(@PathVariable Long menuId) {
-        // [수정] 서비스에서 바로 응답 DTO를 받으므로 코드가 간결해집니다.
-        MenuResponse menuResponse = menuService.getMenuById(menuId);
+    public ResponseEntity<MenuResponse> getMenuById(
+            @PathVariable Long storeId,
+            @PathVariable Long menuId) {
+        MenuResponse menuResponse = menuService.getMenuById(storeId, menuId);
         return ResponseEntity.ok(menuResponse);
     }
 
+
     @PutMapping("/{menuId}")
-    public ResponseEntity<MenuResponse> updateMenu(@PathVariable Long menuId, @Valid @RequestBody MenuUpdateRequest request) {
-        MenuResponse udpateMenuResponse = menuService.updateMenu(menuId, request);
-        return ResponseEntity.ok(udpateMenuResponse);
+    public ResponseEntity<MenuResponse> updateMenu(
+            @PathVariable Long storeId,
+            @PathVariable Long menuId,
+            @Valid @RequestBody MenuUpdateRequest request) {
+        MenuResponse updatedMenuResponse = menuService.updateMenu(storeId, menuId, request);
+        return ResponseEntity.ok(updatedMenuResponse);
     }
 
+
     @DeleteMapping("/{menuId}")
-    public ResponseEntity<Void> deleteMenu(@PathVariable Long menuId) {
-        menuService.deleteMenu(menuId);
+    public ResponseEntity<Void> deleteMenu(
+            @PathVariable Long storeId,
+            @PathVariable Long menuId) {
+        menuService.deleteMenu(storeId, menuId);
         return ResponseEntity.noContent().build();
     }
 
