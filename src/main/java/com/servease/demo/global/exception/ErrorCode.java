@@ -34,9 +34,11 @@ public enum ErrorCode {
     ACTIVE_ORDER_EXISTS(HttpStatus.CONFLICT, "E013", "이미 진행 중인 주문이 테이블에 존재합니다."),
     ORDER_ALREADY_PAID(HttpStatus.CONFLICT, "E014", "이미 결제가 완료된 주문입니다."),
     DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "E015", "이미 사용 중인 아이디입니다."),
+    TABLES_NOT_EMPTY(HttpStatus.CONFLICT, "E018", "모든 테이블이 'EMPTY' 상태일 때만 테이블 수를 변경할 수 있습니다."),
 
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E999", "서버 내부 오류가 발생했습니다.");
+
 
     private final HttpStatus status;
     private final String code;
