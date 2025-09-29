@@ -15,9 +15,11 @@ import com.servease.demo.repository.MenuRepository;
 import com.servease.demo.repository.OrderRepository;
 import com.servease.demo.repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.parameters.P;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,13 +36,13 @@ public class OrderService {
 
 
     @Transactional
-    public OrderResponse createOrder(Long storeId, OrderCreateRequest request) {
-        RestaurantTable initialTable = restaurantTableRepository.findByStoreIdAndTableNumber(storeId, request.getRestaurantTableNumber())
-                .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table number " + request.getRestaurantTableNumber() + " does not exist."));
+    public OrderResponse createOrder(Long storeId, Long tableId, OrderCreateRequest request) {
+        RestaurantTable targetTable = restaurantTableRepository.findByIdWithLock(tableId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table ID " + tableId + " does not exist."));
 
-        RestaurantTable targetTable = restaurantTableRepository.findByIdWithLock(initialTable.getId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Could not acquire lock for table: " + initialTable.getTableNumber()));
-
+        if (!targetTable.getStore().getId().equals(storeId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
+        }
 
         List<Order> activeOrders = orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.ORDERED, OrderStatus.SERVED));
         if (!activeOrders.isEmpty()) {
@@ -79,21 +81,25 @@ public class OrderService {
     }
 
 
-    public List<OrderResponse> getAllOrders(OrderStatus status) {
-        List<Order> orders;
+    public Page<OrderResponse> getOrdersByStore(Long storeId, OrderStatus status, Pageable pageable) {
+        Page<Order> orderPage;
         if (status != null) {
-            orders = orderRepository.findAllByStatusIn(List.of(status));
+            orderPage = orderRepository.findByRestaurantTable_StoreIdAndStatus(storeId, status, pageable);
         } else {
-            orders = orderRepository.findAllByStatusIn(List.of(OrderStatus.ORDERED, OrderStatus.SERVED));
+            List<OrderStatus> activeStatuses = List.of(OrderStatus.ORDERED, OrderStatus.SERVED);
+            orderPage = orderRepository.findByRestaurantTable_StoreIdAndStatusIn(storeId, activeStatuses, pageable);
         }
-
-        return orders.stream()
-                .map(OrderResponse::fromEntity)
-                .collect(Collectors.toList());
+        return orderPage.map(OrderResponse::fromEntity);
     }
 
-    public Optional<OrderResponse> getOrderById(Long id) {
-        return orderRepository.findById(id).map(OrderResponse::fromEntity);
+    public OrderResponse getOrderById(Long storeId, Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (!order.getRestaurantTable().getStore().getId().equals(storeId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
+        }
+        return OrderResponse.fromEntity(order);
     }
 
 
@@ -106,9 +112,12 @@ public class OrderService {
 
     //수량 증감
     @Transactional
-    public OrderResponse addItemsToOrder(Long orderId, List<OrderItemRequest> itemRequests) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID" + orderId));
+    public OrderResponse addItemsToOrder(Long storeId, Long orderId, List<OrderItemRequest> itemRequests) {
+        Order order = findOrderAndVerifyOwnership(storeId, orderId);
+
+        if (!order.getRestaurantTable().getStore().getId().equals(storeId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
+        }
 
         //여기서 status canceled 가 없으면 주문 삭제 후에도 add 가 되는지 test 해봐야 함
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
@@ -169,20 +178,21 @@ public class OrderService {
 
 
     @Transactional
-    public OrderResponse removeOrderItem(Long orderId, Long orderItemId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID: " + orderId));
+    public OrderResponse removeOrderItem(Long storeId, Long orderId, Long orderItemId) {
+        Order order = findOrderAndVerifyOwnership(storeId, orderId);
         order.removeItemById(orderItemId);
-
         Order updatedOrder = orderRepository.save(order);
         return OrderResponse.fromEntity(updatedOrder);
     }
 
 
     @Transactional
-    public OrderResponse cancelOrder(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID: " + orderId));
+    public OrderResponse cancelOrder(Long storeId, Long orderId) {
+        Order order = findOrderAndVerifyOwnership(storeId, orderId);
+
+        if (!order.getRestaurantTable().getStore().getId().equals(storeId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
+        }
 
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot cancel a completed order or already canceled order.");
@@ -227,13 +237,20 @@ public class OrderService {
 
 
     @Transactional
-    public void deleteAllOrdersByTable(Long tableId) {
+    public void deleteAllOrdersByTable(Long storeId, Long tableId) {
         RestaurantTable table = restaurantTableRepository.findById(tableId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "RestaurantTable not found with ID: " + tableId));
+
+        if (!table.getStore().getId().equals(storeId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
+        }
+
         List<Order> ordersToCancel = orderRepository.findByRestaurantTableId(tableId);
         if (ordersToCancel.isEmpty()) {
+            table.setStatus(RestaurantTableStatus.EMPTY);
             return;
         }
+
         for (Order order : ordersToCancel) {
             if (order.getStatus() != OrderStatus.COMPLETED && order.getStatus() != OrderStatus.CANCELED) {
                 order.setStatus(OrderStatus.CANCELED);
@@ -246,9 +263,8 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse markOrderAsServed(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID: " + orderId));
+    public OrderResponse markOrderAsServed(Long storeId, Long orderId) {
+        Order order = findOrderAndVerifyOwnership(storeId, orderId);
 
         if (order.getStatus() != OrderStatus.ORDERED) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Order status must be ORDERED to be marked as SERVED. Current status: " + order.getStatus());
@@ -258,6 +274,17 @@ public class OrderService {
 
         Order updatedOrder = orderRepository.save(order);
         return OrderResponse.fromEntity(updatedOrder);
+    }
+
+
+    private Order findOrderAndVerifyOwnership(Long storeId, Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID: " + orderId));
+
+        if (!order.getRestaurantTable().getStore().getId().equals(storeId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
+        }
+        return order;
     }
 
 }

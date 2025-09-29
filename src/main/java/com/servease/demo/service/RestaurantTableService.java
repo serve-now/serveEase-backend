@@ -7,6 +7,7 @@ import com.servease.demo.model.entity.RestaurantTable;
 import com.servease.demo.model.entity.Store;
 import com.servease.demo.model.enums.RestaurantTableStatus;
 import com.servease.demo.repository.RestaurantTableRepository;
+import com.servease.demo.repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 public class RestaurantTableService {
 
     private final RestaurantTableRepository restaurantTableRepository;
+    private final StoreRepository storeRepository;
 
     @Transactional
     public void createTablesForStore(Store store, int tableCount) {
@@ -46,7 +48,11 @@ public class RestaurantTableService {
 
 
     @Transactional
-    public RestaurantTableResponse createTable(Integer tableNumber, Store store) {
+    public RestaurantTableResponse createTable(Long storeId, Integer tableNumber) {
+        Store store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORE_NOT_FOUND));
+
+
         if (restaurantTableRepository.findByStoreIdAndTableNumber(store.getId(), tableNumber).isPresent()) {
             throw new BusinessException(ErrorCode.DUPLICATE_TABLE_NUMBER, "Table number " + tableNumber + " already exists in store " + store.getId());
         }
