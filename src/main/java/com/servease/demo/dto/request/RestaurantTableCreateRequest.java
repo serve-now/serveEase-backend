@@ -11,6 +11,5 @@ import lombok.Setter;
 @NoArgsConstructor
 public class RestaurantTableCreateRequest {
     private Integer restaurantTableNumber;
-    private Long StoreId;
 
 }
