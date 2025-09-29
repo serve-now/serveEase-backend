@@ -1,11 +1,15 @@
 package com.servease.demo.service;
 
+import com.servease.demo.dto.response.ActiveOrderResponse;
 import com.servease.demo.dto.response.RestaurantTableResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
+import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.RestaurantTable;
 import com.servease.demo.model.entity.Store;
+import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.model.enums.RestaurantTableStatus;
+import com.servease.demo.repository.OrderRepository;
 import com.servease.demo.repository.RestaurantTableRepository;
 import com.servease.demo.repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +20,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 
@@ -27,6 +31,7 @@ public class RestaurantTableService {
 
     private final RestaurantTableRepository restaurantTableRepository;
     private final StoreRepository storeRepository;
+    private final OrderRepository orderRepository;
 
     @Transactional
     public void createTablesForStore(Store store, int tableCount) {
@@ -125,18 +130,60 @@ public class RestaurantTableService {
             return Page.empty(pageable);
         }
 
-        List<Long> tableIds = tablePage.getContent().stream()
-                .map(RestaurantTable::getId)
-                .collect(Collectors.toList());
+        List<RestaurantTableResponse> dtos = tablePage.getContent().stream()
+                .map(t -> {
+                    if (t.getStatus() == RestaurantTableStatus.EMPTY) {
+                        return RestaurantTableResponse.builder()
+                                .id(t.getId())
+                                .restaurantTableNumber(t.getTableNumber())
+                                .displayStatus("EMPTY")
+                                .activeOrder(null)
+                                .build();
+                    }
 
-        List<RestaurantTable> tablesWithDetails = restaurantTableRepository.findAllWithActiveOrdersByIds(tableIds);
+                    Optional<Order> latestOrderOpt = orderRepository
+                            .findTopByRestaurantTableIdOrderByOrderTimeDesc(t.getId());
 
-        List<RestaurantTableResponse> dtos = tablesWithDetails.stream()
-                .map(RestaurantTableResponse::fromEntity)
-                .collect(Collectors.toList());
+                    if (latestOrderOpt.isEmpty()) {
+                        return RestaurantTableResponse.builder()
+                                .id(t.getId())
+                                .restaurantTableNumber(t.getTableNumber())
+                                .displayStatus("EMPTY")
+                                .activeOrder(null)
+                                .build();
+                    }
+
+                    Order latestOrder = latestOrderOpt.get();
+                    OrderStatus latestStatus = latestOrder.getStatus();
+
+                    String displayStatus;
+                    ActiveOrderResponse activeOrderResponse = null;
+
+                    switch (latestStatus) {
+                        case ORDERED, SERVED -> {
+                            displayStatus = latestStatus.name();
+                            activeOrderResponse = ActiveOrderResponse.fromEntity(latestOrder);
+                        }
+                        case COMPLETED, CANCELED -> {
+                            displayStatus = "EMPTY";
+                        }
+                        default -> {
+                            displayStatus = "EMPTY";
+                        }
+                    }
+
+                    return RestaurantTableResponse.builder()
+                            .id(t.getId())
+                            .restaurantTableNumber(t.getTableNumber())
+                            .displayStatus(displayStatus)
+                            .activeOrder(activeOrderResponse)
+                            .build();
+                })
+                .toList();
 
         return new PageImpl<>(dtos, pageable, tablePage.getTotalElements());
     }
+
 
 
 
@@ -149,8 +196,14 @@ public class RestaurantTableService {
         return RestaurantTableResponse.fromEntity(table);
     }
 
+
     @Transactional
-    public void deleteTable(Long id) {
-        restaurantTableRepository.deleteById(id);
+    public void deleteTable(Long storeId, Long tableId) {
+        RestaurantTable table = restaurantTableRepository.findById(tableId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table with ID " + tableId + " not found."));
+        if (!table.getStore().getId().equals(storeId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
+        }
+        restaurantTableRepository.delete(table);
     }
 }

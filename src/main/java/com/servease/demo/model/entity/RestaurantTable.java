@@ -31,7 +31,7 @@ public class RestaurantTable {
     @Column(name = "status", nullable = false)
     private RestaurantTableStatus status;
 
-    @OneToMany(mappedBy = "restaurantTable", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "restaurantTable")
     @Builder.Default
     private List<Order> orders = new ArrayList<>();
 

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
@@ -18,6 +19,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findByRestaurantTable_StoreIdAndStatus(Long storeId, OrderStatus status, Pageable pageable);
 
     Page<Order> findByRestaurantTable_StoreIdAndStatusIn(Long storeId, List<OrderStatus> statuses, Pageable pageable);
+
+    Optional<Order> findTopByRestaurantTableIdOrderByOrderTimeDesc(Long tableId);
 
     // active : ORDERED, IN_PROGRESS
     // inactive : CANCELED
