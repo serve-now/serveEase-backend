@@ -14,7 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "orders")
+@Table(name = "orders",
+        uniqueConstraints = @UniqueConstraint(name = "uk_orders_order_id", columnNames = "order_id"))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -24,6 +25,11 @@ public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    //외부 결제 연동에 사용되는 orderKey
+    @Column(name = "order_key", nullable = false, length = 100)
+    private String orderKey;
+
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "table_id")
