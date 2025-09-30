@@ -43,4 +43,31 @@ public class RestaurantTableResponse {
                 .activeOrder(activeOrderResponse)
                 .build();
     }
+
+
+
+    public static RestaurantTableResponse from(RestaurantTable table, Order latestActiveOrder) {
+        if (table == null) {
+            return null;
+        }
+
+        String status;
+        ActiveOrderResponse activeOrderResponse = null;
+
+        if (latestActiveOrder != null) {
+            status = latestActiveOrder.getStatus().name(); // "ORDERED" or "SERVED"
+            activeOrderResponse = ActiveOrderResponse.fromEntity(latestActiveOrder);
+        } else {
+            status = "EMPTY";
+        }
+
+        return RestaurantTableResponse.builder()
+                .id(table.getId())
+                .restaurantTableNumber(table.getTableNumber())
+                .displayStatus(status)
+                .activeOrder(activeOrderResponse)
+                .build();
+    }
+
+// ... (기존 fromEntity 메서드)
 }
