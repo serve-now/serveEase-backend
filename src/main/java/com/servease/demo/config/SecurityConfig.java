@@ -40,9 +40,15 @@ public class SecurityConfig {
                                 "/user/login",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
+                                "/swagger-ui.html",
+                                "/actuator/**"
                                 ).permitAll()
+                        .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint((req, res, ex) -> res.sendError(401, "Unauthorized"))
+                        .accessDeniedHandler((req, res, ex) -> res.sendError(403, "Forbidden"))
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(userService, jwtUtil), UsernamePasswordAuthenticationFilter.class);;
 
