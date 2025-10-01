@@ -32,25 +32,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/user/signup",
             "/v3/api-docs",
             "/swagger-ui",
-            "/swagger-ui.html",
-            "/"
+            "/swagger-ui.html"
     );
-
-
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        // 1) CORS Preflight(OPTIONS) 는 무조건 패스
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) return true;
-
-        // 2) 화이트리스트 경로는 패스 (prefix 매칭임)
-        String path = request.getServletPath();
-        for (String allow : WHITELIST_PREFIXES) {
-            if (path.equals(allow) || path.startsWith(allow)) {
-                return true;
-            }
-        }
-        return false;
-    }
 
 
 
