@@ -16,6 +16,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -23,6 +24,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final UserService userService;
     private final JwtUtil jwtUtil;
+
+    private static final List<String> WHITELIST_PREFIXES = List.of(
+            "/api/user/login",
+            "/api/user/signup",
+            "/user/login",
+            "/user/signup",
+            "/v3/api-docs",
+            "/swagger-ui",
+            "/swagger-ui.html",
+            "/"
+    );
+
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        // 1) CORS Preflight(OPTIONS) 는 무조건 패스
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) return true;
+
+        // 2) 화이트리스트 경로는 패스 (prefix 매칭임)
+        String path = request.getServletPath();
+        for (String allow : WHITELIST_PREFIXES) {
+            if (path.equals(allow) || path.startsWith(allow)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
@@ -53,4 +84,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
     }
+
+
 }
