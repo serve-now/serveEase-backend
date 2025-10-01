@@ -14,15 +14,16 @@ import com.servease.demo.repository.RestaurantTableRepository;
 import com.servease.demo.repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
 
 @Service
 @Transactional(readOnly = true)
@@ -41,7 +42,6 @@ public class RestaurantTableService {
 
         List<RestaurantTable> tables = new ArrayList<>();
         for (int i = 1; i <= tableCount; i++) {
-            //새로운 가게에 대해서만 호출되므로 중복될 일 x
             RestaurantTable newTable = RestaurantTable.builder()
                     .tableNumber(i)
                     .store(store)
@@ -49,10 +49,8 @@ public class RestaurantTableService {
                     .build();
             tables.add(newTable);
         }
-        // 생성된 테이블 리스트를 한 번에 저장 (JPA가 최적화된 쿼리 실행해줌)
         restaurantTableRepository.saveAll(tables);
     }
-
 
     @Transactional
     public void updateTableCount(Long storeId, int newTotalCount) {
@@ -65,47 +63,53 @@ public class RestaurantTableService {
 
         List<RestaurantTable> currentTables = restaurantTableRepository.findAllByStoreId(storeId);
 
-        boolean allTablesAreEmpty = currentTables.stream()
-                .allMatch(table -> table.getStatus() == RestaurantTableStatus.EMPTY);
+        boolean hasOccupiedTables = currentTables.stream()
+                .anyMatch(table -> table.getStatus() != RestaurantTableStatus.EMPTY);
 
-        if (!allTablesAreEmpty) {
+        if (hasOccupiedTables) {
             throw new BusinessException(ErrorCode.TABLES_NOT_EMPTY, "사용 중인 테이블이 있어 작업할 수 없습니다.");
         }
 
         int currentCount = currentTables.size();
 
         if (newTotalCount < currentCount) {
+            // 테이블 수를 줄이는 경우
             int tablesToRemoveCount = currentCount - newTotalCount;
-            currentTables.stream()
+            List<RestaurantTable> tablesToDelete = currentTables.stream()
                     .sorted(Comparator.comparing(RestaurantTable::getTableNumber).reversed())
                     .limit(tablesToRemoveCount)
-                    .forEach(restaurantTableRepository::delete);
+                    .toList();
+
+            // 삭제할 테이블과 연결된 모든 주문(Order)의 참조를 끊음
+            for (RestaurantTable table : tablesToDelete) {
+                severTiesWithOrders(table);
+            }
+
+            restaurantTableRepository.deleteAll(tablesToDelete);
 
         } else if (newTotalCount > currentCount) {
+            //테이블 수를 늘리는 경우
             int tablesToAddCount = newTotalCount - currentCount;
-
             int maxTableNumber = currentTables.stream()
                     .mapToInt(RestaurantTable::getTableNumber)
                     .max()
                     .orElse(0);
 
-            IntStream.range(1, tablesToAddCount + 1)
+            List<RestaurantTable> newTables = IntStream.range(1, tablesToAddCount + 1)
                     .mapToObj(i -> RestaurantTable.builder()
                             .store(store)
                             .tableNumber(maxTableNumber + i)
                             .status(RestaurantTableStatus.EMPTY)
                             .build())
-                    .forEach(restaurantTableRepository::save);
+                    .toList();
+            restaurantTableRepository.saveAll(newTables);
         }
-        // newTotalCount == currentCount 인 경우는 아무 작업도 하지 않음
     }
-
 
     @Transactional
     public RestaurantTableResponse createTable(Long storeId, Integer tableNumber) {
         Store store = storeRepository.findById(storeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORE_NOT_FOUND));
-
 
         if (restaurantTableRepository.findByStoreIdAndTableNumber(store.getId(), tableNumber).isPresent()) {
             throw new BusinessException(ErrorCode.DUPLICATE_TABLE_NUMBER, "Table number " + tableNumber + " already exists in store " + store.getId());
@@ -121,7 +125,6 @@ public class RestaurantTableService {
         return RestaurantTableResponse.fromEntity(savedTable);
     }
 
-
     public Page<RestaurantTableResponse> getAllTablesByStore(Long storeId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("tableNumber").ascending());
         Page<RestaurantTable> tablePage = restaurantTableRepository.findAllByStoreId(storeId, pageable);
@@ -130,63 +133,29 @@ public class RestaurantTableService {
             return Page.empty(pageable);
         }
 
+        List<Long> tableIds = tablePage.getContent().stream()
+                .map(RestaurantTable::getId)
+                .toList();
+
+        List<OrderStatus> activeStatuses = List.of(OrderStatus.ORDERED, OrderStatus.SERVED);
+        List<Order> activeOrders = orderRepository.findByRestaurantTableIdInAndStatusInOrderByOrderTimeDesc(tableIds, activeStatuses);
+
+        Map<Long, Order> latestOrderMap = activeOrders.stream()
+                .collect(Collectors.toMap(
+                        order -> order.getRestaurantTable().getId(),
+                        Function.identity(),
+                        (existing, replacement) -> existing // 중복 키 발생 시 기존 값 유지 (이미 시간 역순 정렬)
+                ));
+
         List<RestaurantTableResponse> dtos = tablePage.getContent().stream()
-                .map(t -> {
-                    if (t.getStatus() == RestaurantTableStatus.EMPTY) {
-                        return RestaurantTableResponse.builder()
-                                .id(t.getId())
-                                .restaurantTableNumber(t.getTableNumber())
-                                .displayStatus("EMPTY")
-                                .activeOrder(null)
-                                .build();
-                    }
-
-                    Optional<Order> latestOrderOpt = orderRepository
-                            .findTopByRestaurantTableIdOrderByOrderTimeDesc(t.getId());
-
-                    if (latestOrderOpt.isEmpty()) {
-                        return RestaurantTableResponse.builder()
-                                .id(t.getId())
-                                .restaurantTableNumber(t.getTableNumber())
-                                .displayStatus("EMPTY")
-                                .activeOrder(null)
-                                .build();
-                    }
-
-                    Order latestOrder = latestOrderOpt.get();
-                    OrderStatus latestStatus = latestOrder.getStatus();
-
-                    String displayStatus;
-                    ActiveOrderResponse activeOrderResponse = null;
-
-                    switch (latestStatus) {
-                        case ORDERED, SERVED -> {
-                            displayStatus = latestStatus.name();
-                            activeOrderResponse = ActiveOrderResponse.fromEntity(latestOrder);
-                        }
-                        case COMPLETED, CANCELED -> {
-                            displayStatus = "EMPTY";
-                        }
-                        default -> {
-                            displayStatus = "EMPTY";
-                        }
-                    }
-
-                    return RestaurantTableResponse.builder()
-                            .id(t.getId())
-                            .restaurantTableNumber(t.getTableNumber())
-                            .displayStatus(displayStatus)
-                            .activeOrder(activeOrderResponse)
-                            .build();
+                .map(table -> {
+                    Order latestOrder = latestOrderMap.get(table.getId());
+                    return RestaurantTableResponse.from(table, latestOrder);
                 })
                 .toList();
 
         return new PageImpl<>(dtos, pageable, tablePage.getTotalElements());
     }
-
-
-
-
 
     @Transactional
     public RestaurantTableResponse updateTableStatus(Long id, RestaurantTableStatus newStatus) {
@@ -196,14 +165,26 @@ public class RestaurantTableService {
         return RestaurantTableResponse.fromEntity(table);
     }
 
-
     @Transactional
     public void deleteTable(Long storeId, Long tableId) {
         RestaurantTable table = restaurantTableRepository.findById(tableId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table with ID " + tableId + " not found."));
+
         if (!table.getStore().getId().equals(storeId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
         }
+
+        severTiesWithOrders(table);
+
         restaurantTableRepository.delete(table);
+    }
+
+
+    private void severTiesWithOrders(RestaurantTable table) {
+        List<Order> linkedOrders = orderRepository.findByRestaurantTableId(table.getId());
+        if (!linkedOrders.isEmpty()) {
+            linkedOrders.forEach(order -> order.setRestaurantTable(null));
+            orderRepository.saveAllAndFlush(linkedOrders);
+        }
     }
 }

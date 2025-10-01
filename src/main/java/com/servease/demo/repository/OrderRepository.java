@@ -20,6 +20,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Page<Order> findByRestaurantTable_StoreIdAndStatusIn(Long storeId, List<OrderStatus> statuses, Pageable pageable);
 
+    List<Order> findByRestaurantTableIdInAndStatusInOrderByOrderTimeDesc(Collection<Long> tableIds, Collection<OrderStatus> statuses);
+
     Optional<Order> findTopByRestaurantTableIdOrderByOrderTimeDesc(Long tableId);
 
     // active : ORDERED, IN_PROGRESS
