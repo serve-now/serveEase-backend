@@ -14,7 +14,8 @@ public class OrderItemResponse {
     private Long menuId;
     private String menuName;
     private int quantity;
-    private int itemPrice;
+    private int itemPrice; //이건 개당 가격
+    private final int totalItemPrice; //수량이 반영된 총 가격
 
     public static OrderItemResponse fromEntity(OrderItem orderItem) {
         if (orderItem == null || orderItem.getMenu() == null) {
@@ -27,6 +28,7 @@ public class OrderItemResponse {
                 .menuName(orderItem.getMenu().getName())
                 .quantity(orderItem.getQuantity())
                 .itemPrice(orderItem.getItemPrice())
+                .totalItemPrice(orderItem.getItemPrice() * orderItem.getQuantity())
                 .build();
     }
 }
