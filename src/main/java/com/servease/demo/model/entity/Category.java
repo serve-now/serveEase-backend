@@ -25,7 +25,7 @@ public class Category {
     @JoinColumn(name = "store_id", nullable = false)
     private Store store;
 
-    @Column(name = "name", nullable = false, unique = true, length = 50)
+    @Column(name = "name", nullable = false, length = 50)
     private String name;
 
     public void updateName(String newName) {
