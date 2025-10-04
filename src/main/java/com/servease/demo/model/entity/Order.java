@@ -26,10 +26,9 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    //외부 결제 연동에 사용되는 orderKey
-    @Column(name = "order_key", nullable = false, length = 100)
-    private String orderKey;
-
+    //외부 결제 연동에 사용되는 orderId: 토스에 보내주는거임
+    @Column(name = "order_id", nullable = false, length = 100)
+    private String orderId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "table_id")
@@ -54,6 +53,7 @@ public class Order {
     @Builder.Default
     @JsonManagedReference
     private List<OrderItem> orderItems = new ArrayList<>();
+
 
 
     public void addOrderItem(OrderItem orderItem) {
