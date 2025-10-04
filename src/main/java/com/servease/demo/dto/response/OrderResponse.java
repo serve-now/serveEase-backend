@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 
 public class OrderResponse {
     private Long id;
+    private String orderId;
     private Long restaurantTableId;
     private OrderStatus status;
     private int totalPrice;
@@ -36,6 +37,7 @@ public class OrderResponse {
 
         return OrderResponse.builder()
                 .id(order.getId())
+                .orderId(order.getOrderId())
                 .restaurantTableId(order.getRestaurantTable().getId())
                 .status(order.getStatus())
                 .totalPrice(order.getTotalPrice())
