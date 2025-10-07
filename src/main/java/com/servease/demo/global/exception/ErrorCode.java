@@ -36,10 +36,11 @@ public enum ErrorCode {
     DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "E015", "이미 사용 중인 아이디입니다."),
     TABLES_NOT_EMPTY(HttpStatus.CONFLICT, "E018", "모든 테이블이 'EMPTY' 상태일 때만 테이블 수를 변경할 수 있습니다."),
     DUPLICATE_ORDER_ID(HttpStatus.CONFLICT, "E019", "중복된 orderId입니다."),
-    AMOUNT_NOT_MATCH(HttpStatus.CONFLICT,"E021","계산 금액은 0보다 작습니다." ),
+    AMOUNT_NOT_MATCH(HttpStatus.CONFLICT,"E021","주문 금액과 결제 금액이 일치하지 않습니다." ),
 
     // 500 Internal Server Error
-    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E999", "서버 내부 오류가 발생했습니다.");
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E999", "서버 내부 오류가 발생했습니다."),
+    TOSS_PAYMENT_CONFIRM_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E022", "토스 페이먼츠 결제 승인에 실패했습니다.");
 
 
     private final HttpStatus status;

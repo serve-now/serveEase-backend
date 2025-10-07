@@ -12,6 +12,9 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
+    //토스orderId로 찾기: paymentService 와 연결
+    Optional<Order> findByOrderId(String orderId);
+
     List<Order> findByRestaurantTableId(Long restaurantTableId);
 
     List<Order> findByRestaurantTableIdAndStatusIn(Long restaurantTableId, Collection<OrderStatus> statuses);
