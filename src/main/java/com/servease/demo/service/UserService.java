@@ -42,6 +42,10 @@ public class UserService implements UserDetailsService {
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
         });
 
+        if (userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_PHONE_NUMBER);
+        }
+
         User newUser = User.builder()
                 .loginId(request.getLoginId())
                 .password(passwordEncoder.encode(request.getPassword()))

@@ -37,6 +37,7 @@ public enum ErrorCode {
     TABLES_NOT_EMPTY(HttpStatus.CONFLICT, "E018", "모든 테이블이 'EMPTY' 상태일 때만 테이블 수를 변경할 수 있습니다."),
     DUPLICATE_ORDER_ID(HttpStatus.CONFLICT, "E019", "중복된 orderId입니다."),
     AMOUNT_NOT_MATCH(HttpStatus.CONFLICT,"E021","주문 금액과 결제 금액이 일치하지 않습니다." ),
+    DUPLICATE_PHONE_NUMBER(HttpStatus.CONFLICT, "E023", "이미 가입된 휴대폰 번호입니다."),
 
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E999", "서버 내부 오류가 발생했습니다."),
