@@ -73,34 +73,19 @@ public class MenuService {
         return MenuResponse.fromEntity(menu);
     }
 
+
     @Transactional
     public MenuResponse updateMenu(Long storeId, Long menuId, MenuUpdateRequest request) {
         Menu menu = findMenuAndVerifyOwnership(storeId, menuId);
 
-        if (!request.getName().equals(menu.getName())) {
-            menuRepository.findByStoreIdAndName(storeId, request.getName()).ifPresent(m -> {
-                if (!m.getId().equals(menuId)) {
-                    throw new BusinessException(ErrorCode.DUPLICATE_MENU_NAME, "Menu name '" + request.getName() + "' already exists.");
-                }
-            });
-        }
-
         if (!request.getCategoryId().equals(menu.getCategory().getId())) {
             Category newCategory = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND, "Category id=" + request.getCategoryId() + " not found"));
-            if (!newCategory.getStore().getId().equals(storeId)) {
-                throw new BusinessException(ErrorCode.FORBIDDEN, "The new category does not belong to this store.");
-            }
-            menu.setCategory(newCategory);
+            menu.updateMenu(request.getName(), request.getPrice(), newCategory, request.isAvailable());
+        } else {
+            menu.updateMenu(request.getName(), request.getPrice(), menu.getCategory(), request.isAvailable());
         }
-
-
-        menu.setName(request.getName());
-        menu.setPrice(request.getPrice());
-        menu.setAvailable(request.isAvailable());
-
-        Menu updatedMenu = menuRepository.save(menu);
-        return MenuResponse.fromEntity(updatedMenu);
+        return MenuResponse.fromEntity(menu);
     }
 
     @Transactional

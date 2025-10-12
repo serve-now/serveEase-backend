@@ -32,4 +32,15 @@ public class Menu {
     @Column(name = "available", nullable = false)
     private boolean available;
 
+    public void updateMenu(
+            String name,
+            Integer price,
+            Category category,
+            boolean available
+    ) {
+        this.name = name;
+        this.price = price;
+        this.category = category;
+        this.available = available;
+    }
 }
