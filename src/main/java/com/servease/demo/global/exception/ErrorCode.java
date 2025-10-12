@@ -12,6 +12,9 @@ public enum ErrorCode {
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "E001", "입력 값이 올바르지 않습니다."),
     MENU_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "E009", "현재 주문할 수 없는 메뉴입니다."),
 
+    // 401
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED,"E024", "인증 정보가 올바르지 않습니다."),
+
     //403
     FORBIDDEN(HttpStatus.FORBIDDEN, "E020", "해당 리소스에 접근할 권한이 없습니다."),
 
