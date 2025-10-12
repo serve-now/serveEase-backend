@@ -1,24 +1,18 @@
-package com.servease.demo.global.exception;
+package com.servease.demo.controller;
 
-
+import com.servease.demo.global.exception.BusinessException;
+import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.global.exception.dto.ErrorResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.servlet.View;
 
 import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    private final View error;
-
-    public GlobalExceptionHandler(View error) {
-        this.error = error;
-    }
 
     //우리가 정의한 비즈니스 예외시 여기로
     @ExceptionHandler(BusinessException.class)
@@ -53,7 +47,7 @@ public class GlobalExceptionHandler {
                 errorCode.getMessage(),    //title: "입력 값이 올바르지 않습니다"
                 "Request Validation failed",
                 items //MethodArgumentNotValidException은 어떤 필드가 에러났는지 FieldError 리스트를 갖고 있음
-                      //이걸 받아서 items 에 담아 전달
+                //이걸 받아서 items 에 담아 전달
         );
 
         return ResponseEntity.status(errorCode.getStatus()).body(body);
