@@ -77,7 +77,7 @@ public class MenuService {
     public MenuResponse updateMenu(Long storeId, Long menuId, MenuUpdateRequest request) {
         Menu menu = findMenuAndVerifyOwnership(storeId, menuId);
 
-        if (request.getName() != null && !request.getName().equals(menu.getName())) {
+        if (!request.getName().equals(menu.getName())) {
             menuRepository.findByStoreIdAndName(storeId, request.getName()).ifPresent(m -> {
                 if (!m.getId().equals(menuId)) {
                     throw new BusinessException(ErrorCode.DUPLICATE_MENU_NAME, "Menu name '" + request.getName() + "' already exists.");
@@ -85,7 +85,7 @@ public class MenuService {
             });
         }
 
-        if (request.getCategoryId() != null && !request.getCategoryId().equals(menu.getCategory().getId())) {
+        if (!request.getCategoryId().equals(menu.getCategory().getId())) {
             Category newCategory = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND, "Category id=" + request.getCategoryId() + " not found"));
             if (!newCategory.getStore().getId().equals(storeId)) {
