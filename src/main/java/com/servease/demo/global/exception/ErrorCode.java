@@ -42,6 +42,7 @@ public enum ErrorCode {
     AMOUNT_NOT_MATCH(HttpStatus.CONFLICT,"E021","주문 금액과 결제 금액이 일치하지 않습니다." ),
     DUPLICATE_PHONE_NUMBER(HttpStatus.CONFLICT, "E023", "이미 가입된 휴대폰 번호입니다."),
 
+
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E999", "서버 내부 오류가 발생했습니다."),
     TOSS_PAYMENT_CONFIRM_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E022", "토스 페이먼츠 결제 승인에 실패했습니다.");
