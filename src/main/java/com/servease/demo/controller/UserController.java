@@ -14,10 +14,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/user")
@@ -29,26 +26,22 @@ public class UserController {
     private final JwtUtil jwtUtil;
 
     @PostMapping("/signup")
-    public ResponseEntity<AuthSuccessResponse> signUp(@Valid @RequestBody UserSignUpRequest request) {
-        AuthSuccessResponse response = userService.signUp(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthSuccessResponse signUp(@Valid @RequestBody UserSignUpRequest request) {
+        return userService.signUp(request);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthSuccessResponse> login(@RequestBody UserLoginRequest request) {
-        try {
-            // Spring Security(authenticationManager) 를 통해 인증 시도
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getLoginId(), request.getPassword())
-            );
+    public AuthSuccessResponse login(@RequestBody UserLoginRequest request) {
+        // Spring Security(authenticationManager) 를 통해 인증 시도
+        //TODO: 다른 가게일 경우도 auth 확인해야함
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getLoginId(), request.getPassword())
+        );
 
-            User user = (User) authentication.getPrincipal();
+        User user = (User) authentication.getPrincipal();
+        String token = jwtUtil.generateToken(user.getLoginId());
 
-            String token = jwtUtil.generateToken(user.getLoginId());
-
-            return ResponseEntity.ok(AuthSuccessResponse.from(user, token));
-         }catch (BadCredentialsException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        return AuthSuccessResponse.from(user, token);
     }
 }

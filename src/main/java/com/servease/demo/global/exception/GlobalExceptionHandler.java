@@ -3,6 +3,7 @@ package com.servease.demo.global.exception;
 
 import com.servease.demo.global.exception.dto.ErrorResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -73,6 +74,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ec.getStatus()).body(body);
     }
 
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredential(BadCredentialsException e) {
+        ErrorCode errorCode = ErrorCode.UNAUTHORIZED;
+        final ErrorResponse response = ErrorResponse.of(
+                errorCode.getStatus().value(),
+                errorCode.getCode(),
+                errorCode.getMessage(),
+                ""
+        );
 
+        return ResponseEntity.status(errorCode.getStatus()).body(response);
+    }
 
 }
