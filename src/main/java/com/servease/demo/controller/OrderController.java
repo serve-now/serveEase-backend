@@ -28,7 +28,9 @@ public class OrderController {
     }
 
     @PostMapping("/{orderId}/pay")
-    public ResponseEntity<OrderResponse> completePayment(@PathVariable Long storeId, @PathVariable Long orderId) {
+    public ResponseEntity<OrderResponse> completePayment(
+            @PathVariable Long storeId,
+            @PathVariable Long orderId) {
         OrderResponse paidOrder = orderService.completePayment(orderId);
         return ResponseEntity.ok(paidOrder);
     }
@@ -37,7 +39,7 @@ public class OrderController {
     public ResponseEntity<OrderResponse> getOrderById(
             @PathVariable Long storeId,
             @PathVariable Long orderId) {
-        OrderResponse orderResponse = orderService.getOrderById(storeId, orderId);
+        OrderResponse orderResponse = orderService.getOrderById(orderId);
         return ResponseEntity.ok(orderResponse);
     }
 
@@ -52,10 +54,11 @@ public class OrderController {
 
     // 새로운 메뉴 항목들을 주문에 추가
     @PostMapping("/{orderId}/items")
-    public ResponseEntity<OrderResponse> addItemsToOrder(@PathVariable Long storeId,
-                                                         @PathVariable Long orderId,
-                                                         @RequestBody @Valid List<OrderItemRequest> orderItemRequests) {
-        OrderResponse updatedOrder = orderService.addItemsToOrder(storeId, orderId, orderItemRequests);
+    public ResponseEntity<OrderResponse> addItemsToOrder(
+            @PathVariable Long storeId,
+            @PathVariable Long orderId,
+            @RequestBody @Valid List<OrderItemRequest> orderItemRequests) {
+        OrderResponse updatedOrder = orderService.addItemsToOrder(orderId, orderItemRequests);
         return ResponseEntity.ok(updatedOrder);
     }
 
@@ -64,21 +67,22 @@ public class OrderController {
     public ResponseEntity<OrderResponse> cancelOrderById(
             @PathVariable Long storeId,
             @PathVariable Long orderId) {
-        OrderResponse canceledOrder = orderService.cancelOrder(storeId, orderId);
+        OrderResponse canceledOrder = orderService.cancelOrder(orderId);
         return ResponseEntity.ok(canceledOrder);
     }
 
     @DeleteMapping("/{orderId}/items/{orderItemId}")
-    public ResponseEntity<OrderResponse> removeOrderItem(@PathVariable Long storeId, @PathVariable Long orderId, @PathVariable Long orderItemId) {
-        OrderResponse updatedOrder = orderService.removeOrderItem(storeId, orderId, orderItemId);
+    public ResponseEntity<OrderResponse> removeOrderItem(
+            @PathVariable Long storeId,
+            @PathVariable Long orderId,
+            @PathVariable Long orderItemId) {
+        OrderResponse updatedOrder = orderService.removeOrderItem(orderId, orderItemId);
         return ResponseEntity.ok(updatedOrder);
     }
 
     @PatchMapping("/{orderId}/serve")
-    public ResponseEntity<OrderResponse> markAsServed(
-            @PathVariable Long storeId,
-            @PathVariable Long orderId) {
-        OrderResponse servedOrder = orderService.markOrderAsServed(storeId, orderId);
+    public ResponseEntity<OrderResponse> markAsServed(@PathVariable Long orderId) {
+        OrderResponse servedOrder = orderService.markOrderAsServed(orderId);
         return ResponseEntity.ok(servedOrder);
     }
 

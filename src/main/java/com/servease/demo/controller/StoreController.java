@@ -6,8 +6,8 @@ import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.entity.Store;
 import com.servease.demo.model.entity.User;
-import com.servease.demo.repository.UserRepository;
 import com.servease.demo.service.StoreService;
+import com.servease.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,13 +21,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class StoreController {
     private final StoreService storeService;
-    private final UserRepository userRepository;
+    private final UserService userService;
 
 
     @PostMapping
     public ResponseEntity<StoreResponse> createStore(@RequestBody StoreCreateRequest request) {
-        User owner = userRepository.findById(request.getOwnerId())
-                .orElseThrow(()-> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User owner = userService.findUserById(request.getOwnerId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         Store newStore = storeService.createStore(request.getStoreName(), owner);
 
