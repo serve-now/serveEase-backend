@@ -26,7 +26,6 @@ public class RestaurantTable {
     @JoinColumn(name= "store_id")
     private Store store;
 
-    @Setter
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private RestaurantTableStatus status;
