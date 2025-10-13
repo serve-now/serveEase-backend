@@ -20,7 +20,7 @@ public record PaymentConfirmResponse(
                 dto.getCard().getIssuerCode(),
                 dto.getCard().getApproveNo(),
                 dto.getCard().getNumber(),
-                dto.getApprovedAt().atZone(ZoneId.of("Asia/Seoul"))
+                dto.getApprovedAt().atZoneSameInstant(ZoneId.of("Asia/Seoul"))
         );
     }
 }
