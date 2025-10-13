@@ -1,6 +1,5 @@
 package com.servease.demo.service;
 
-import com.servease.demo.dto.response.ActiveOrderResponse;
 import com.servease.demo.dto.response.RestaurantTableResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
@@ -161,21 +160,15 @@ public class RestaurantTableService {
     public RestaurantTableResponse updateTableStatus(Long id, RestaurantTableStatus newStatus) {
         RestaurantTable table = restaurantTableRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table with ID " + id + " not found."));
-        table.setStatus(newStatus);
+        table.updateStatus(newStatus);
         return RestaurantTableResponse.fromEntity(table);
     }
 
     @Transactional
-    public void deleteTable(Long storeId, Long tableId) {
+    public void deleteTable(Long tableId) {
         RestaurantTable table = restaurantTableRepository.findById(tableId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table with ID " + tableId + " not found."));
-
-        if (!table.getStore().getId().equals(storeId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
-        }
-
         severTiesWithOrders(table);
-
         restaurantTableRepository.delete(table);
     }
 
