@@ -19,11 +19,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.UUID;
-
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,23 +38,18 @@ public class OrderService {
 
 
     @Transactional
-    public OrderResponse createOrder(Long storeId, Long tableId, OrderCreateRequest request) {
-        String orderId = java.util.UUID.randomUUID().toString();
-
+    public OrderResponse createOrder(Long tableId, OrderCreateRequest request) {
         RestaurantTable targetTable = restaurantTableRepository.findByIdWithLock(tableId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table ID " + tableId + " does not exist."));
 
-        if (!targetTable.getStore().getId().equals(storeId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
-        }
-
+        // TODO: exists query 로 개선하기 -> queryDSL
         List<Order> activeOrders = orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.ORDERED, OrderStatus.SERVED));
         if (!activeOrders.isEmpty()) {
             throw new BusinessException(ErrorCode.ACTIVE_ORDER_EXISTS,
                     "An active order already exists for table " + targetTable.getTableNumber());
         }
 
-
+        String orderId = UUID.randomUUID().toString();
         Order newOrder = Order.builder()
                 .orderId(orderId)
                 .restaurantTable(targetTable)
@@ -61,13 +57,17 @@ public class OrderService {
                 .isPaid(false)
                 .build();
 
-        for (OrderItemRequest itemRequest : request.getOrderItems()) {
-            Menu menu = menuRepository.findById(itemRequest.getMenuId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.MENU_NOT_FOUND, "Menu item not found with ID" + itemRequest.getMenuId()));
+        List<Long> menuIds = request.getOrderItems().stream()
+                .map(OrderItemRequest::getMenuId)
+                .collect(Collectors.toList());
 
-            if (!menu.isAvailable()) {
-                throw new BusinessException(ErrorCode.MENU_NOT_AVAILABLE, "Invalid menu item or quantity");
-            }
+        List<Menu> menus = menuRepository.findAllByIdInAndAvailableIsTrue(menuIds);
+
+        Map<Long, Menu> menuMap = menus.stream()
+                .collect(Collectors.toMap(Menu::getId, Function.identity()));
+
+        for (OrderItemRequest itemRequest : request.getOrderItems()) {
+            Menu menu = menuMap.get(itemRequest.getMenuId());
 
             OrderItem orderItem = OrderItem.builder()
                     .menu(menu)
@@ -77,10 +77,11 @@ public class OrderService {
 
             newOrder.addOrderItem(orderItem);
         }
+
         newOrder.calculateTotalPrice();
 
         Order savedOrder = orderRepository.save(newOrder);
-        targetTable.setStatus(RestaurantTableStatus.USING);
+        targetTable.updateStatus(RestaurantTableStatus.USING);
         return OrderResponse.fromEntity(savedOrder);
     }
 
@@ -144,18 +145,18 @@ public class OrderService {
                     .filter(item -> item.getMenu().getId().equals(itemRequest.getMenuId()))
                     .findFirst();
 
-            if(existingItemOpt.isPresent()) {
+            if (existingItemOpt.isPresent()) {
                 OrderItem existingItem = existingItemOpt.get();
                 int newQuantity = existingItem.getQuantity() + itemRequest.getQuantity();
 
-                if(newQuantity > 0) {
+                if (newQuantity > 0) {
                     existingItem.setQuantity(newQuantity);
                 } else {
                     order.removeOrderItem(existingItem);
                 }
 
             } else { //새로운 아이템을 추가하는 경우
-                if(itemRequest.getQuantity() > 0) {
+                if (itemRequest.getQuantity() > 0) {
                     OrderItem newOrderItem = OrderItem.builder()
                             .menu(menu)
                             .quantity(itemRequest.getQuantity())
@@ -251,7 +252,7 @@ public class OrderService {
 
         List<Order> ordersToCancel = orderRepository.findByRestaurantTableId(tableId);
         if (ordersToCancel.isEmpty()) {
-            table.setStatus(RestaurantTableStatus.EMPTY);
+            table.updateStatus(RestaurantTableStatus.EMPTY);
             return;
         }
 
@@ -262,7 +263,7 @@ public class OrderService {
             }
         }
 
-        table.setStatus(RestaurantTableStatus.EMPTY);
+        table.updateStatus(RestaurantTableStatus.EMPTY);
         restaurantTableRepository.save(table);
     }
 

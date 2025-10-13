@@ -48,7 +48,7 @@ public class RestaurantTableController {
             @PathVariable Long storeId,
             @PathVariable Long tableId,
             @RequestBody @Valid OrderCreateRequest request) {
-        OrderResponse newOrder = orderService.createOrder(storeId, tableId, request);
+        OrderResponse newOrder = orderService.createOrder(tableId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(newOrder);
     }
 
