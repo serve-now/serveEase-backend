@@ -86,6 +86,11 @@ public class OrderService {
         return OrderResponse.fromEntity(savedOrder);
     }
 
+    public Order getOrderByOrderId(String externalOrderId) {
+        return orderRepository.findByOrderId(externalOrderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. orderId: " + externalOrderId));
+    }
+
 
     public Page<OrderResponse> getOrdersByStore(Long storeId, OrderStatus status, Pageable pageable) {
         Page<Order> orderPage;

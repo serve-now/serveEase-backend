@@ -9,7 +9,6 @@ import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.infra.TossPaymentClient;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
-import com.servease.demo.repository.OrderRepository;
 import com.servease.demo.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +23,6 @@ public class PaymentService {
 
     private final TossPaymentClient tossPaymentClient;
     private final PaymentRepository paymentRepository;
-    private final OrderRepository orderRepository; // OrderRepository 주입
     private final OrderService orderService;
     private final PlatformTransactionManager transactionManager;
 
@@ -35,9 +33,7 @@ public class PaymentService {
     public PaymentConfirmResponse confirmAndSave(TossConfirmRequest tossConfirmRequest) {
         //응답에서 orderId 추출,  order 찾기 (completePayment 호출 위함)
         String orderId = tossConfirmRequest.orderId();
-        // TODO: orderService의 getOrderById 사용하는 걸로 개선하기.
-        Order order = orderRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. orderId: " + orderId));
+        Order order = orderService.getOrderByOrderId(orderId);
 
         if (!order.getTotalPrice().equals(tossConfirmRequest.amount())) {
             throw new BusinessException(ErrorCode.AMOUNT_NOT_MATCH, "주문 금액과 결제 금액이 일치하지 않습니다.");
@@ -60,4 +56,3 @@ public class PaymentService {
         return PaymentConfirmResponse.from(response);
     }
 }
-
