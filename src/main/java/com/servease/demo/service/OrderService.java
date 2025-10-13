@@ -27,6 +27,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -97,33 +98,18 @@ public class OrderService {
         return orderPage.map(OrderResponse::fromEntity);
     }
 
-    public OrderResponse getOrderById(Long storeId, Long orderId) {
+    public OrderResponse getOrderById(Long orderId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
-
-        if (!order.getRestaurantTable().getStore().getId().equals(storeId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
-        }
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다."));
         return OrderResponse.fromEntity(order);
-    }
-
-
-    public List<OrderResponse> getOrdersByRestaurantTableId(Long restaurantTableId) {
-        return orderRepository.findByRestaurantTableId(restaurantTableId).stream()
-                .map(OrderResponse::fromEntity)
-                .collect(Collectors.toList());
     }
 
 
     //수량 증감
     @Transactional
-    public OrderResponse addItemsToOrder(Long storeId, Long orderId, List<OrderItemRequest> itemRequests) {
-        Order order = findOrderAndVerifyOwnership(storeId, orderId);
-
-        if (!order.getRestaurantTable().getStore().getId().equals(storeId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
-        }
-
+    public OrderResponse addItemsToOrder(Long orderId, List<OrderItemRequest> itemRequests) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. " + orderId));
         //여기서 status canceled 가 없으면 주문 삭제 후에도 add 가 되는지 test 해봐야 함
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot add items to a completed or canceled order");
@@ -183,8 +169,9 @@ public class OrderService {
 
 
     @Transactional
-    public OrderResponse removeOrderItem(Long storeId, Long orderId, Long orderItemId) {
-        Order order = findOrderAndVerifyOwnership(storeId, orderId);
+    public OrderResponse removeOrderItem(Long orderId, Long orderItemId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. " + orderId));
         order.removeItemById(orderItemId);
         Order updatedOrder = orderRepository.save(order);
         return OrderResponse.fromEntity(updatedOrder);
@@ -192,12 +179,9 @@ public class OrderService {
 
 
     @Transactional
-    public OrderResponse cancelOrder(Long storeId, Long orderId) {
-        Order order = findOrderAndVerifyOwnership(storeId, orderId);
-
-        if (!order.getRestaurantTable().getStore().getId().equals(storeId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
-        }
+    public OrderResponse cancelOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. " + orderId));
 
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot cancel a completed order or already canceled order.");
@@ -242,13 +226,9 @@ public class OrderService {
 
 
     @Transactional
-    public void deleteAllOrdersByTable(Long storeId, Long tableId) {
+    public void deleteAllOrdersByTable(Long tableId) {
         RestaurantTable table = restaurantTableRepository.findById(tableId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "RestaurantTable not found with ID: " + tableId));
-
-        if (!table.getStore().getId().equals(storeId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
-        }
 
         List<Order> ordersToCancel = orderRepository.findByRestaurantTableId(tableId);
         if (ordersToCancel.isEmpty()) {
@@ -268,8 +248,9 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse markOrderAsServed(Long storeId, Long orderId) {
-        Order order = findOrderAndVerifyOwnership(storeId, orderId);
+    public OrderResponse markOrderAsServed(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. " + orderId));
 
         if (order.getStatus() != OrderStatus.ORDERED) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Order status must be ORDERED to be marked as SERVED. Current status: " + order.getStatus());
@@ -281,15 +262,5 @@ public class OrderService {
         return OrderResponse.fromEntity(updatedOrder);
     }
 
-
-    private Order findOrderAndVerifyOwnership(Long storeId, Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID: " + orderId));
-
-        if (!order.getRestaurantTable().getStore().getId().equals(storeId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
-        }
-        return order;
-    }
 
 }

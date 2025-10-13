@@ -25,19 +25,18 @@ public class RestaurantTableController {
 
     private final OrderService orderService;
     private final RestaurantTableService restaurantTableService;
-    private final StoreRepository storeRepository;
 
     @Autowired
     public RestaurantTableController(RestaurantTableService restaurantTableService, OrderService orderService, StoreRepository storeRepository) {
         this.restaurantTableService = restaurantTableService;
         this.orderService = orderService;
-        this.storeRepository = storeRepository;
     }
 
     @GetMapping
-    public ResponseEntity<Page<RestaurantTableResponse>> getAllTables(@PathVariable Long storeId,
-                                                                      @RequestParam(value = "page", defaultValue = "0") int page,
-                                                                      @RequestParam(value = "size", defaultValue = "12") int size) {
+    public ResponseEntity<Page<RestaurantTableResponse>> getAllTables(
+            @PathVariable Long storeId,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "12") int size) {
         Page<RestaurantTableResponse> tablePage = restaurantTableService.getAllTablesByStore(storeId, page, size);
         return ResponseEntity.ok(tablePage);
     }
@@ -61,15 +60,19 @@ public class RestaurantTableController {
     }
 
     @PutMapping("/{tableId}")
-    public ResponseEntity<RestaurantTableResponse> updateTableStatus(@PathVariable Long tableId, @RequestBody RestaurantTableStatusUpdateRequest request) {
+    public ResponseEntity<RestaurantTableResponse> updateTableStatus(
+            @PathVariable Long storeId,
+            @PathVariable Long tableId,
+            @RequestBody RestaurantTableStatusUpdateRequest request) {
         RestaurantTableResponse updatedTable = restaurantTableService.updateTableStatus(tableId, request.getStatus());
         return ResponseEntity.ok(updatedTable);
     }
 
     @DeleteMapping("/{tableId}")
-    public ResponseEntity<Void> deleteTable(@PathVariable Long storeId,
-                                            @PathVariable Long tableId) {
-        restaurantTableService.deleteTable(storeId, tableId);
+    public ResponseEntity<Void> deleteTable(
+            @PathVariable Long storeId,
+            @PathVariable Long tableId) {
+        restaurantTableService.deleteTable(tableId);
         return ResponseEntity.noContent().build();
     }
 
@@ -77,7 +80,7 @@ public class RestaurantTableController {
     public ResponseEntity<Void> deleteAllOrdersByTable(
             @PathVariable Long storeId,
             @PathVariable Long tableId) {
-        orderService.deleteAllOrdersByTable(storeId, tableId);
+        orderService.deleteAllOrdersByTable(tableId);
         return ResponseEntity.noContent().build();
     }
 

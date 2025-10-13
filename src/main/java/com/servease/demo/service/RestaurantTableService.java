@@ -165,16 +165,10 @@ public class RestaurantTableService {
     }
 
     @Transactional
-    public void deleteTable(Long storeId, Long tableId) {
+    public void deleteTable(Long tableId) {
         RestaurantTable table = restaurantTableRepository.findById(tableId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table with ID " + tableId + " not found."));
-
-        if (!table.getStore().getId().equals(storeId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "This table does not belong to the specified store.");
-        }
-
         severTiesWithOrders(table);
-
         restaurantTableRepository.delete(table);
     }
 
