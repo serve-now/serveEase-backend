@@ -30,7 +30,7 @@ public class RestaurantTableResponse {
 
         if (activeOrderOpt.isPresent()) {
             Order activeOrder = activeOrderOpt.get();
-            status = activeOrderOpt.get().getStatus().name();// "ORDERED" or "SERVED"
+            status = resolveDisplayStatus(activeOrder);
             activeOrderResponse = ActiveOrderResponse.fromEntity(activeOrder);
         } else {
             status = "EMPTY";
@@ -55,7 +55,7 @@ public class RestaurantTableResponse {
         ActiveOrderResponse activeOrderResponse = null;
 
         if (latestActiveOrder != null) {
-            status = latestActiveOrder.getStatus().name(); // "ORDERED" or "SERVED"
+            status = resolveDisplayStatus(latestActiveOrder); // "ORDERED" or "SERVED"
             activeOrderResponse = ActiveOrderResponse.fromEntity(latestActiveOrder);
         } else {
             status = "EMPTY";
@@ -69,5 +69,19 @@ public class RestaurantTableResponse {
                 .build();
     }
 
-// ... (기존 fromEntity 메서드)
+    private static String resolveDisplayStatus(Order order) {
+        if (order == null) {
+            return "EMPTY";
+        }
+
+        if (order.isPaid()) {
+            return order.getStatus().name();
+        }
+
+        if (order.getPaidAmount() != null && order.getPaidAmount() > 0) {
+            return "PARTIALLY_PAID";
+        }
+
+        return order.getStatus().name();
+    }
 }

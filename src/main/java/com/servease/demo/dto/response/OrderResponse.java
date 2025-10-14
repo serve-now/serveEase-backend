@@ -20,6 +20,8 @@ public class OrderResponse {
     private Long restaurantTableId;
     private OrderStatus status;
     private int totalPrice;
+    private int paidAmount;
+    private int outstandingAmount;
     private boolean isPaid;
     private LocalDateTime orderTime;
     private List<OrderItemResponse> orderItems;
@@ -41,6 +43,8 @@ public class OrderResponse {
                 .restaurantTableId(order.getRestaurantTable().getId())
                 .status(order.getStatus())
                 .totalPrice(order.getTotalPrice())
+                .paidAmount(order.getPaidAmount())
+                .outstandingAmount(order.getOutstandingAmount())
                 .isPaid(order.isPaid())
                 .orderTime(order.getOrderTime())
                 .orderItems(itemResponses)

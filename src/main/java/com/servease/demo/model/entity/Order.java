@@ -41,6 +41,10 @@ public class Order {
     @Column(name = "total_price", nullable = false)
     private Integer totalPrice;
 
+    @Builder.Default
+    @Column(name = "paid_amount", nullable = false)
+    private Integer paidAmount = 0;
+
     @Column(name = "is_paid", nullable = false)
     private boolean isPaid = false;
 
@@ -70,6 +74,17 @@ public class Order {
         this.totalPrice = this.orderItems.stream()
                 .mapToInt(item -> item.getQuantity() * item.getItemPrice())
                 .sum();
+    }
+
+    public void increasePaidAmount(int amount) {
+        this.paidAmount += amount;
+    }
+
+    public int getOutstandingAmount() {
+        if (this.totalPrice == null) {
+            return 0;
+        }
+        return Math.max(this.totalPrice - this.paidAmount, 0);
     }
 
     public void removeItemById(Long orderItemId){
