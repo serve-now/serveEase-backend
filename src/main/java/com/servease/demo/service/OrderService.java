@@ -209,24 +209,61 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID :" + orderId));
 
-        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID, "Status cannot be change, current status : " + order.getStatus());
+        if (order.getStatus() == OrderStatus.CANCELED) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "취소된 주문은 결제할 수 없습니다.");
         }
-        if (order.isPaid()) {
+
+        if (order.getOutstandingAmount() <= 0) {
             throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID);
         }
 
-        order.setPaid(true);
-        order.setStatus(OrderStatus.COMPLETED);
+        applyPaymentInternal(order, order.getOutstandingAmount());
+        orderRepository.save(order);
+        return OrderResponse.fromEntity(order);
+    }
 
-        //결제가 완료되면 주문이 종결 -> 테이블 상태를 EMPTY 로 변경
-        RestaurantTable table = order.getRestaurantTable();
-        if (table.getStatus() == RestaurantTableStatus.USING) {
-            table.updateStatus(RestaurantTableStatus.EMPTY);
+    @Transactional
+    public void applyPayment(Long orderId, int paymentAmount) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID :" + orderId));
+
+        applyPaymentInternal(order, paymentAmount);
+        orderRepository.save(order);
+    }
+
+    private void applyPaymentInternal(Order order, int paymentAmount) {
+        if (order.getStatus() == OrderStatus.COMPLETED) {
+            throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID);
+        }
+        if (order.getStatus() == OrderStatus.CANCELED) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "취소된 주문은 결제할 수 없습니다.");
+        }
+        if (paymentAmount <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "결제 금액은 0보다 커야 합니다.");
         }
 
-        Order updatedOrder = orderRepository.save(order);
-        return OrderResponse.fromEntity(updatedOrder);
+        int outstanding = order.getOutstandingAmount();
+        if (outstanding <= 0) {
+            throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID);
+        }
+        if (paymentAmount > outstanding) {
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_EXCEEDS_OUTSTANDING);
+        }
+
+        order.increasePaidAmount(paymentAmount);
+
+        if (order.getOutstandingAmount() == 0) {
+            order.setPaid(true);
+            if (order.getStatus() == OrderStatus.SERVED) {
+                order.setStatus(OrderStatus.COMPLETED);
+            }
+            RestaurantTable table = order.getRestaurantTable();
+            if (table != null && table.getStatus() == RestaurantTableStatus.USING && order.getStatus() == OrderStatus.COMPLETED) {
+                table.updateStatus(RestaurantTableStatus.EMPTY);
+            }
+        } else {
+            order.setPaid(false);
+        }
     }
 
 
@@ -262,6 +299,16 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.SERVED);
+
+        if (order.getOutstandingAmount() == 0) {
+            order.setPaid(true);
+            order.setStatus(OrderStatus.COMPLETED);
+
+            RestaurantTable table = order.getRestaurantTable();
+            if (table != null && table.getStatus() == RestaurantTableStatus.USING) {
+                table.updateStatus(RestaurantTableStatus.EMPTY);
+            }
+        }
 
         Order updatedOrder = orderRepository.save(order);
         return OrderResponse.fromEntity(updatedOrder);

@@ -9,6 +9,7 @@ import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.infra.TossPaymentClient;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
+import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,12 +36,16 @@ public class PaymentService {
         String orderId = tossConfirmRequest.orderId();
         Order order = orderService.getOrderByOrderId(orderId);
 
-        if (!order.getTotalPrice().equals(tossConfirmRequest.amount())) {
-            throw new BusinessException(ErrorCode.AMOUNT_NOT_MATCH, "주문 금액과 결제 금액이 일치하지 않습니다.");
+        if (order.getStatus() == OrderStatus.CANCELED) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "취소된 주문은 결제할 수 없습니다.");
         }
 
-        if (order.isPaid()) {
+        int outstandingAmount = order.getOutstandingAmount();
+        if (outstandingAmount <= 0) {
             throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID);
+        }
+        if (tossConfirmRequest.amount() > outstandingAmount) {
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_EXCEEDS_OUTSTANDING);
         }
 
         PaymentResponseDto response = tossPaymentClient.confirm(tossConfirmRequest);
@@ -49,7 +54,7 @@ public class PaymentService {
         transactionTemplate.executeWithoutResult(status -> {
             //저장 및 order.isPaid= true
             paymentRepository.save(Payment.from(tossConfirmRequest.paymentKey(), orderId, tossConfirmRequest.amount(), response.toString()));
-            orderService.completePayment(order.getId());
+            orderService.applyPayment(order.getId(), tossConfirmRequest.amount());
         });
 
         // 프론트 응답 DTO 만들기

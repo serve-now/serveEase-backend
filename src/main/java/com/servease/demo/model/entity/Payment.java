@@ -13,7 +13,7 @@ import java.time.OffsetDateTime;
 @Table(name = "payments",
         indexes = {
                 @Index(name = "ux_payments_payment_key", columnList = "payment_key", unique = true),
-                @Index(name = "ux_payments_order_id", columnList = "order_id", unique = true),
+                @Index(name = "ix_payments_order_id", columnList = "order_id"),
                 @Index(name = "ix_payments_created_at", columnList = "created_at")
         }
 )
