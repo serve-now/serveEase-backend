@@ -10,6 +10,10 @@ public record TossConfirmRequest(
         @Pattern(regexp = "^[A-Za-z0-9_-]{6,64}$")
         String orderId,
 
+        @NotBlank @Size(min = 6, max = 64)
+        @Pattern(regexp = "^[A-Za-z0-9_-]{6,64}$")
+        String parentOrderId,
+
         @NotNull
         @Positive
         Integer amount
