@@ -39,7 +39,16 @@ public class Order {
     private OrderStatus status;
 
     @Column(name = "total_price", nullable = false)
-    private Integer totalPrice;
+    @Builder.Default
+    private Integer totalPrice = 0;
+
+    @Column(name = "paid_amount", nullable = false)
+    @Builder.Default
+    private Integer paidAmount = 0;
+
+    @Column(name = "remaining_amount", nullable = false)
+    @Builder.Default
+    private Integer remainingAmount = 0;
 
     @Column(name = "is_paid", nullable = false)
     private boolean isPaid = false;
@@ -70,6 +79,7 @@ public class Order {
         this.totalPrice = this.orderItems.stream()
                 .mapToInt(item -> item.getQuantity() * item.getItemPrice())
                 .sum();
+//        syncPaymentAmountsWithTotal();
     }
 
     public void removeItemById(Long orderItemId){
