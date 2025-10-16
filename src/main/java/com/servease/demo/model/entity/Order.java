@@ -79,7 +79,7 @@ public class Order {
         this.totalPrice = this.orderItems.stream()
                 .mapToInt(item -> item.getQuantity() * item.getItemPrice())
                 .sum();
-//        syncPaymentAmountsWithTotal();
+        syncPaymentAmountsWithTotal();
     }
 
     public void removeItemById(Long orderItemId){
@@ -94,5 +94,57 @@ public class Order {
 
         this.removeOrderItem(itemToRemove);
         this.calculateTotalPrice();
+    }
+
+    //PG 승인 이후 금액을 주문에 반영하고 그에 따라 상태를 갱신
+    public boolean recordPayment(Integer paymentAmount) {
+        if (paymentAmount == null || paymentAmount <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "결제 금액은 0보다 커야 합니다.");
+        }
+        if (this.isPaid) {
+            throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID, "이미 결제가 완료된 주문입니다.");
+        }
+        int newPaidAmount = this.paidAmount + paymentAmount;
+        if (newPaidAmount > this.totalPrice) {
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_EXCEEDS_REMAINING,
+                    "결제 금액이 남은 금액을 초과했습니다.");
+        }
+
+        this.paidAmount = newPaidAmount;
+        this.remainingAmount = this.totalPrice - this.paidAmount;
+
+        if (this.remainingAmount == 0) {
+            this.isPaid = true;
+            this.status = OrderStatus.COMPLETED;
+            return true;
+        }
+
+        this.isPaid = false;
+        if (this.status != OrderStatus.CANCELED) {
+            this.status = OrderStatus.PARTIALLY_PAID;
+        }
+        return false;
+    }
+
+    public void syncPaymentAmountsWithTotal() {
+        if (this.paidAmount == null) {
+            this.paidAmount = 0;
+        }
+        if (this.paidAmount > this.totalPrice) {
+            throw new BusinessException(ErrorCode.PAID_AMOUNT_EXCEEDS_TOTAL,
+                    "누적 결제 금액이 총 주문 금액을 초과했습니다.");
+        }
+        this.remainingAmount = this.totalPrice - this.paidAmount;
+        if (this.remainingAmount == 0 && this.totalPrice > 0) {
+            this.isPaid = true;
+            if (this.status != OrderStatus.CANCELED) {
+                this.status = OrderStatus.COMPLETED;
+            }
+        } else {
+            this.isPaid = false;
+            if (this.paidAmount > 0 && this.status != OrderStatus.CANCELED) {
+                this.status = OrderStatus.PARTIALLY_PAID;
+            }
+        }
     }
 }
