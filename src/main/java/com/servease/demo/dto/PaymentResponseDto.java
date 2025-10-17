@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Getter
 @Setter
@@ -18,8 +18,8 @@ public class PaymentResponseDto {
     private String orderName;
     private Integer taxExemptionAmount;
     private String status;
-    private LocalDateTime requestedAt;
-    private LocalDateTime approvedAt;
+    private OffsetDateTime requestedAt;
+    private OffsetDateTime approvedAt;
     private Boolean useEscrow;
     private Boolean cultureExpense;
     private Card card;

@@ -26,7 +26,7 @@ public record PaymentConfirmResponse(
         String approvalNumber = card != null ? card.getApproveNo() : dto.getPaymentKey();
 
         ZonedDateTime approvedAt = dto.getApprovedAt() != null
-                ? dto.getApprovedAt().atZone(ZoneId.of("Asia/Seoul"))
+                ? dto.getApprovedAt().atZoneSameInstant(ZoneId.of("Asia/Seoul"))
                 : null;
 
         return new PaymentConfirmResponse(
