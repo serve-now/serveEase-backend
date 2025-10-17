@@ -20,7 +20,8 @@ public class TossPaymentClient {
     }
 
     public PaymentResponseDto confirm(TossConfirmRequest request) {
-        ResponseEntity<PaymentResponseDto> res = restTemplate.postForEntity(TOSS_URL, request, PaymentResponseDto.class);
+        TossConfirmPayload payload = new TossConfirmPayload(request.paymentKey(), request.orderId(), request.amount());
+        ResponseEntity<PaymentResponseDto> res = restTemplate.postForEntity(TOSS_URL, payload, PaymentResponseDto.class);
         if (!res.getStatusCode().is2xxSuccessful()) {
             log.error("Toss confirm failed. Response: {}", res.getBody());
             throw new BusinessException(ErrorCode.TOSS_PAYMENT_CONFIRM_FAILED);
@@ -28,5 +29,8 @@ public class TossPaymentClient {
 
         return res.getBody();
 
+    }
+
+    private record TossConfirmPayload(String paymentKey, String orderId, Integer amount) {
     }
 }
