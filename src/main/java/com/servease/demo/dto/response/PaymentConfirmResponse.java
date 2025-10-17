@@ -1,26 +1,45 @@
 package com.servease.demo.dto.response;
 
 import com.servease.demo.dto.PaymentResponseDto;
+import com.servease.demo.model.entity.Order;
+import com.servease.demo.model.enums.OrderStatus;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
 public record PaymentConfirmResponse(
+        String paymentOrderId,
         String orderId,
         String method,
         String cardCompany,        // 카드 아니면 null
         String maskedCardNumber,   // 카드 아니면 null
         String approvalNumber,     // 카드: approveNo, 그 외: paymentKey
-        ZonedDateTime approvedAt
+        ZonedDateTime approvedAt,
+        Integer paidAmount,
+        Integer remainingAmount,
+        OrderStatus orderStatus
 ) {
-    public static PaymentConfirmResponse from(PaymentResponseDto dto) {
+    public static PaymentConfirmResponse from(PaymentResponseDto dto, Order order) {
+        PaymentResponseDto.Card card = dto.getCard();
+        String issuerCode = card != null ? card.getIssuerCode() : null;
+        String maskedNumber = card != null ? card.getNumber() : null;
+        String approvalNumber = card != null ? card.getApproveNo() : dto.getPaymentKey();
+
+        ZonedDateTime approvedAt = dto.getApprovedAt() != null
+                ? dto.getApprovedAt().atZoneSameInstant(ZoneId.of("Asia/Seoul"))
+                : null;
+
         return new PaymentConfirmResponse(
                 dto.getOrderId(),
+                order.getOrderId(),
                 dto.getMethod(),
-                dto.getCard().getIssuerCode(),
-                dto.getCard().getApproveNo(),
-                dto.getCard().getNumber(),
-                dto.getApprovedAt().atZoneSameInstant(ZoneId.of("Asia/Seoul"))
+                issuerCode,
+                maskedNumber,
+                approvalNumber,
+                approvedAt,
+                order.getPaidAmount(),
+                order.getRemainingAmount(),
+                order.getStatus()
         );
     }
 }

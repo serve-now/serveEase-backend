@@ -41,6 +41,9 @@ public enum ErrorCode {
     DUPLICATE_ORDER_ID(HttpStatus.CONFLICT, "E019", "중복된 orderId입니다."),
     AMOUNT_NOT_MATCH(HttpStatus.CONFLICT,"E021","주문 금액과 결제 금액이 일치하지 않습니다." ),
     DUPLICATE_PHONE_NUMBER(HttpStatus.CONFLICT, "E023", "이미 가입된 휴대폰 번호입니다."),
+    DUPLICATE_PAYMENT_KEY(HttpStatus.CONFLICT, "E027", "이미 처리된 결제 요청입니다."),
+    PAYMENT_AMOUNT_EXCEEDS_REMAINING(HttpStatus.CONFLICT, "E028", "결제 금액이 남은 금액을 초과했습니다."),
+    PAID_AMOUNT_EXCEEDS_TOTAL(HttpStatus.CONFLICT, "E029", "누적 결제 금액이 총 주문 금액을 초과했습니다."),
 
 
     // 500 Internal Server Error
