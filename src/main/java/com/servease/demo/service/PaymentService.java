@@ -1,6 +1,8 @@
 package com.servease.demo.service;
 
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.servease.demo.dto.PaymentResponseDto;
 import com.servease.demo.dto.request.TossConfirmRequest;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
@@ -25,34 +27,88 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderService orderService;
     private final PlatformTransactionManager transactionManager;
+    private final ObjectMapper objectMapper;
 
     // 사용자가 결제창에서 인증 끝내고 successUrl로 돌아온 순간에 paymentKey, orderId, amount를 서버에 저장
     // 같은트랜잭션으로 saveAndConfirm 바로 호출
     // 10분 넘기면 EXPIRED/NOT_FOUND_PAYMENT_SESSION으로 실패 (toss에서)
 
+    //(confirm)
     public PaymentConfirmResponse confirmAndSave(TossConfirmRequest tossConfirmRequest) {
-        //응답에서 orderId 추출,  order 찾기 (completePayment 호출 위함)
-        String orderId = tossConfirmRequest.orderId();
-        Order order = orderService.getOrderByOrderId(orderId);
+        //트랜잭션 밖에서: 토스 pg에 결제승인 요청
+        PaymentResponseDto paymentResponseDto = tossPaymentClient.confirm(tossConfirmRequest);
 
-        if (!order.getTotalPrice().equals(tossConfirmRequest.amount())) {
-            throw new BusinessException(ErrorCode.AMOUNT_NOT_MATCH, "주문 금액과 결제 금액이 일치하지 않습니다.");
+        //트랜잭션 시작: 재검증 + 내부 DB 반영 + 상태 전이 등
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        PaymentConfirmResponse paymentConfirmResponse = transactionTemplate.execute(status -> processAfterConfirm(tossConfirmRequest, paymentResponseDto));
+
+        if (paymentConfirmResponse == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 처리에 실패했습니다.");
         }
+
+        return paymentConfirmResponse;
+    }
+
+    //내부 시스템에 반영 (save직전까지)
+    //주문 조회 및 락
+    private PaymentConfirmResponse processAfterConfirm(TossConfirmRequest tossConfirmRequest, PaymentResponseDto paymentResponseDto) {
+        //멱등,중복 방지
+        if (paymentRepository.existsByPaymentKey(tossConfirmRequest.paymentKey())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_PAYMENT_KEY, "이미 처리된 결제 요청입니다. (paymentKey)");
+        }
+        if (paymentRepository.existsByExternalOrderId(tossConfirmRequest.orderId())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_ORDER_ID, "이미 처리된 결제 요청입니다. (orderId)");
+        }
+
+        //상위 주문 락 + 금액 재검증
+        Order order = orderService.getOrderByOrderIdWithLock(tossConfirmRequest.parentOrderId());
+        order.syncPaymentAmountsWithTotal();
 
         if (order.isPaid()) {
             throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID);
         }
 
-        PaymentResponseDto response = tossPaymentClient.confirm(tossConfirmRequest);
+        int remainingAmount = order.getRemainingAmount();
+        int requestedAmount = tossConfirmRequest.amount();
 
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        transactionTemplate.executeWithoutResult(status -> {
-            //저장 및 order.isPaid= true
-            paymentRepository.save(Payment.from(tossConfirmRequest.paymentKey(), orderId, tossConfirmRequest.amount(), response.toString()));
-            orderService.completePayment(order.getId());
-        });
+        if (requestedAmount <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "결제 금액은 0보다 커야합니다.");
+        }
 
-        // 프론트 응답 DTO 만들기
-        return PaymentConfirmResponse.from(response);
+        if (requestedAmount > remainingAmount) {
+            throw new BusinessException(
+                    ErrorCode.PAYMENT_AMOUNT_EXCEEDS_REMAINING,
+                    String.format("남은 금액(%d)을 초과하는 금액(%d)으로 결제할 수 없습니다.", remainingAmount, requestedAmount)
+            );
+        }
+
+
+        order.recordPayment(requestedAmount);
+        orderService.releaseTableIfOrderCompleted(order);
+
+        Payment payment = Payment.from(
+                order,
+                tossConfirmRequest.paymentKey(),
+                tossConfirmRequest.orderId(),
+                requestedAmount,
+                order.getPaidAmount(),
+                serializeResponse(paymentResponseDto)
+        );
+
+        paymentRepository.save(payment);
+
+
+        //응답도 paymentResponseDto 사용
+        return PaymentConfirmResponse.from(paymentResponseDto, order);
     }
+
+    private String serializeResponse(PaymentResponseDto response) {
+        try {
+            return objectMapper.writeValueAsString(response);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize payment response", e);
+            return response.toString();
+        }
+    }
+
 }

@@ -44,7 +44,8 @@ public class OrderService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.TABLE_NOT_FOUND, "Table ID " + tableId + " does not exist."));
 
         // TODO: exists query 로 개선하기 -> queryDSL
-        List<Order> activeOrders = orderRepository.findByRestaurantTableIdAndStatusIn(targetTable.getId(), List.of(OrderStatus.ORDERED, OrderStatus.SERVED));
+        List<Order> activeOrders = orderRepository.findByRestaurantTableIdAndStatusIn(
+                targetTable.getId(), List.of(OrderStatus.ORDERED, OrderStatus.SERVED, OrderStatus.PARTIALLY_PAID));
         if (!activeOrders.isEmpty()) {
             throw new BusinessException(ErrorCode.ACTIVE_ORDER_EXISTS,
                     "An active order already exists for table " + targetTable.getTableNumber());
@@ -91,13 +92,18 @@ public class OrderService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. orderId: " + externalOrderId));
     }
 
+    @Transactional
+    public Order getOrderByOrderIdWithLock(String externalOrderId) {
+        return orderRepository.findByOrderIdWithLock(externalOrderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. orderId: " + externalOrderId));
+    }
 
     public Page<OrderResponse> getOrdersByStore(Long storeId, OrderStatus status, Pageable pageable) {
         Page<Order> orderPage;
         if (status != null) {
             orderPage = orderRepository.findByRestaurantTable_StoreIdAndStatus(storeId, status, pageable);
         } else {
-            List<OrderStatus> activeStatuses = List.of(OrderStatus.ORDERED, OrderStatus.SERVED);
+            List<OrderStatus> activeStatuses = List.of(OrderStatus.ORDERED, OrderStatus.SERVED, OrderStatus.PARTIALLY_PAID);
             orderPage = orderRepository.findByRestaurantTable_StoreIdAndStatusIn(storeId, activeStatuses, pageable);
         }
         return orderPage.map(OrderResponse::fromEntity);
@@ -203,28 +209,30 @@ public class OrderService {
     }
 
 
-    //선결제 하는 경우는 payment 와 분리
     @Transactional
-    public OrderResponse completePayment(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID :" + orderId));
+    public OrderResponse completePayment(Long id) {
+        Order order = orderRepository.findByIdWithLock(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID :" + id));
 
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
             throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID, "Status cannot be change, current status : " + order.getStatus());
         }
+
+        order.syncPaymentAmountsWithTotal();
+
         if (order.isPaid()) {
             throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID);
         }
 
-        order.setPaid(true);
-        order.setStatus(OrderStatus.COMPLETED);
-
-        //결제가 완료되면 주문이 종결 -> 테이블 상태를 EMPTY 로 변경
-        RestaurantTable table = order.getRestaurantTable();
-        if (table.getStatus() == RestaurantTableStatus.USING) {
-            table.updateStatus(RestaurantTableStatus.EMPTY);
+        int remainingAmount = order.getRemainingAmount();
+        if (remainingAmount <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "남은 결제 금액이 없습니다.");
         }
 
+        order.recordPayment(remainingAmount);
+        releaseTableIfOrderCompleted(order);
+
+        //결제가 완료되면 주문이 종결 -> 테이블 상태를 EMPTY 로 변경
         Order updatedOrder = orderRepository.save(order);
         return OrderResponse.fromEntity(updatedOrder);
     }
@@ -253,9 +261,9 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse markOrderAsServed(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. " + orderId));
+    public OrderResponse markOrderAsServed(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. " + id));
 
         if (order.getStatus() != OrderStatus.ORDERED) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Order status must be ORDERED to be marked as SERVED. Current status: " + order.getStatus());
@@ -267,5 +275,15 @@ public class OrderService {
         return OrderResponse.fromEntity(updatedOrder);
     }
 
+    void releaseTableIfOrderCompleted(Order order) {
+        if (!order.isPaid()) {
+            return;
+        }
 
+        RestaurantTable table = order.getRestaurantTable();
+        if (table != null && table.getStatus() == RestaurantTableStatus.USING) {
+            table.updateStatus(RestaurantTableStatus.EMPTY);
+            restaurantTableRepository.save(table);
+        }
+    }
 }

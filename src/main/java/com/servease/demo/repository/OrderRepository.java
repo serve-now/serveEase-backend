@@ -2,9 +2,13 @@ package com.servease.demo.repository;
 
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.enums.OrderStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -25,9 +29,16 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByRestaurantTableIdInAndStatusInOrderByOrderTimeDesc(Collection<Long> tableIds, Collection<OrderStatus> statuses);
 
-    Optional<Order> findTopByRestaurantTableIdOrderByOrderTimeDesc(Long tableId);
-
     // active : ORDERED, IN_PROGRESS
     // inactive : CANCELED
     List<Order> findAllByStatusIn(Collection<OrderStatus> statuses);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Order o where o.orderId = :orderId")
+    Optional<Order> findByOrderIdWithLock(@Param("orderId") String orderId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Order o where o.id = :id")
+    Optional<Order> findByIdWithLock(@Param("id") Long id);
+
 }
