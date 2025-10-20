@@ -15,7 +15,10 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "sales_daily",
         uniqueConstraints = @UniqueConstraint(name = "ux_sales_daily_store_date", columnNames = {"store_id", "sales_date"}),
-        indexes = @Index(name = "ix_sales_daily_store_date", columnList = "store_id, sales_date"))
+        indexes = {
+                @Index(name = "ix_sales_daily_store_date", columnList = "store_id, sales_date"),
+                @Index(name = "ix_sales_daily_date", columnList = "sales_date")
+        })
 public class SalesDaily extends BaseEntity {
 
     @Id
