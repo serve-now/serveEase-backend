@@ -15,10 +15,7 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "sales_daily",
         uniqueConstraints = @UniqueConstraint(name = "ux_sales_daily_store_date", columnNames = {"store_id", "sales_date"}),
-        indexes = {
-                @Index(name = "ix_sales_daily_store_date", columnList = "store_id, sales_date"),
-                @Index(name = "ix_sales_daily_date", columnList = "sales_date")
-        })
+        indexes = @Index(name = "ix_sales_daily_store_date", columnList = "store_id, sales_date"))
 public class SalesDaily extends BaseEntity {
 
     @Id
@@ -44,6 +41,10 @@ public class SalesDaily extends BaseEntity {
     @Builder.Default
     private BigDecimal dailyAverageOrderValue = BigDecimal.ZERO;
 
+    @Column(name = "daily_canceled_amount", nullable = false)
+    @Builder.Default
+    private Long dailyCanceledAmount = 0L;
+
     public void applyOrder(long dailyNetSalesDelta, int orderCountDelta) {
         // 증감값을 받아 누적 매출·주문 건수를 조정하면서 일 평균을 함께 갱신한다.
         this.dailyNetSales = this.dailyNetSales + dailyNetSalesDelta;
@@ -68,6 +69,7 @@ public class SalesDaily extends BaseEntity {
                 .date(date)
                 .dailyNetSales(dailyNetSales)
                 .orderCount(orderCount)
+                .dailyCanceledAmount(0L)
                 .dailyAverageOrderValue(avg)
                 .build();
     }
