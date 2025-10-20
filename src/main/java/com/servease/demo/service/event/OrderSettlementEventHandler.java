@@ -1,6 +1,6 @@
 package com.servease.demo.service.event;
 
-import com.servease.demo.service.settlement.SettlementService;
+import com.servease.demo.service.SettlementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;

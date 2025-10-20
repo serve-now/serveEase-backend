@@ -107,6 +107,7 @@ public class PaymentService {
         return PaymentConfirmResponse.from(paymentResponseDto, order);
     }
 
+    //paymentResponseDto 를 문자열로 저장하기위해 json 으로변환
     private String serializeResponse(PaymentResponseDto response) {
         try {
             return objectMapper.writeValueAsString(response);
