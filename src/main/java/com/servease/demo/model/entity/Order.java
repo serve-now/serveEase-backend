@@ -63,7 +63,8 @@ public class Order {
     @JsonManagedReference
     private List<OrderItem> orderItems = new ArrayList<>();
 
-
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
 
     public void addOrderItem(OrderItem orderItem) {
         this.orderItems.add(orderItem);
@@ -116,6 +117,9 @@ public class Order {
         if (this.remainingAmount == 0) {
             this.isPaid = true;
             this.status = OrderStatus.COMPLETED;
+            if (this.paidAt == null) {
+                this.paidAt = LocalDateTime.now();
+            }
             return true;
         }
 
@@ -140,11 +144,15 @@ public class Order {
             if (this.status != OrderStatus.CANCELED) {
                 this.status = OrderStatus.COMPLETED;
             }
+            if (this.paidAt == null) {
+                this.paidAt = LocalDateTime.now();
+            }
         } else {
             this.isPaid = false;
             if (this.paidAmount > 0 && this.status != OrderStatus.CANCELED) {
                 this.status = OrderStatus.PARTIALLY_PAID;
             }
+            this.paidAt = null;
         }
     }
 }
