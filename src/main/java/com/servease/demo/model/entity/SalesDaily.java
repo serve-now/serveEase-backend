@@ -46,7 +46,7 @@ public class SalesDaily extends BaseEntity {
     private Long dailyCanceledAmount = 0L;
 
     public void applyOrder(long dailyNetSalesDelta, int orderCountDelta) {
-        // 증감값을 받아 누적 매출·주문 건수를 조정하면서 일 평균을 함께 갱신한다.
+        // 증감값을 받아 누적 매출·주문 건수를 조정하면서 일 평균을 함께 갱신
         this.dailyNetSales = this.dailyNetSales + dailyNetSalesDelta;
         this.orderCount = this.orderCount + orderCountDelta;
 
