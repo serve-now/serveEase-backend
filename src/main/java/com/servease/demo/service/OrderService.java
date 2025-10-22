@@ -14,9 +14,11 @@ import com.servease.demo.model.enums.RestaurantTableStatus;
 import com.servease.demo.repository.MenuRepository;
 import com.servease.demo.repository.OrderRepository;
 import com.servease.demo.repository.RestaurantTableRepository;
+import com.servease.demo.service.event.OrderFullyPaidEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +38,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final RestaurantTableRepository restaurantTableRepository;
     private final MenuRepository menuRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
 
     @Transactional
@@ -229,8 +232,12 @@ public class OrderService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "남은 결제 금액이 없습니다.");
         }
 
-        order.recordPayment(remainingAmount);
+        boolean orderCompleted = order.recordPayment(remainingAmount);
         releaseTableIfOrderCompleted(order);
+
+        if (orderCompleted) {
+            eventPublisher.publishEvent(new OrderFullyPaidEvent(order.getId()));
+        }
 
         //결제가 완료되면 주문이 종결 -> 테이블 상태를 EMPTY 로 변경
         Order updatedOrder = orderRepository.save(order);

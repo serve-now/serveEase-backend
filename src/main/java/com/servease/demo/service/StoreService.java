@@ -1,5 +1,7 @@
 package com.servease.demo.service;
 
+import com.servease.demo.global.exception.BusinessException;
+import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.entity.Store;
 import com.servease.demo.model.entity.User;
 import com.servease.demo.repository.StoreRepository;
@@ -18,5 +20,10 @@ public class StoreService {
     public Store createStore(String storeName, User owner) {
         Store newStore = Store.create(owner, storeName);
         return storeRepository.save(newStore);
+    }
+
+    public Store getStore(Long storeId) {
+        return storeRepository.findById(storeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORE_NOT_FOUND, "Store not found: " + storeId));
     }
 }

@@ -12,8 +12,10 @@ import com.servease.demo.infra.TossPaymentClient;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
 import com.servease.demo.repository.PaymentRepository;
+import com.servease.demo.service.event.OrderFullyPaidEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -27,6 +29,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderService orderService;
     private final PlatformTransactionManager transactionManager;
+    private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
 
     // 사용자가 결제창에서 인증 끝내고 successUrl로 돌아온 순간에 paymentKey, orderId, amount를 서버에 저장
@@ -97,11 +100,14 @@ public class PaymentService {
 
         paymentRepository.save(payment);
 
+        if (order.isPaid()) {
+            eventPublisher.publishEvent(new OrderFullyPaidEvent(order.getId()));
+        }
 
-        //응답도 paymentResponseDto 사용
         return PaymentConfirmResponse.from(paymentResponseDto, order);
     }
 
+    //paymentResponseDto 를 문자열로 저장하기위해 json 으로변환
     private String serializeResponse(PaymentResponseDto response) {
         try {
             return objectMapper.writeValueAsString(response);
