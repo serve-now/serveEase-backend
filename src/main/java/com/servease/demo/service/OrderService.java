@@ -101,6 +101,12 @@ public class OrderService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. orderId: " + externalOrderId));
     }
 
+    @Transactional
+    public Order getOrderByIdWithLock(Long id) {
+        return orderRepository.findByIdWithLock(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID :" + id));
+    }
+
     public Page<OrderResponse> getOrdersByStore(Long storeId, OrderStatus status, Pageable pageable) {
         Page<Order> orderPage;
         if (status != null) {
