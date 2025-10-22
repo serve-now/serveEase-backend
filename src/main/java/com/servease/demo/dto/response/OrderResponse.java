@@ -24,6 +24,7 @@ public class OrderResponse {
     private int remainingAmount;
     private boolean isPaid;
     private LocalDateTime orderTime;
+    private LocalDateTime paidAt;
     private List<OrderItemResponse> orderItems;
 
     public static OrderResponse fromEntity(Order order) {
@@ -47,6 +48,7 @@ public class OrderResponse {
                 .remainingAmount(order.getRemainingAmount())
                 .isPaid(order.isPaid())
                 .orderTime(order.getOrderTime())
+                .paidAt(order.getPaidAt())
                 .orderItems(itemResponses)
                 .build();
     }
