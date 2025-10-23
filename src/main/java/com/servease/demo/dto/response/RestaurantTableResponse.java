@@ -14,7 +14,7 @@ import java.util.Optional;
 public class RestaurantTableResponse {
     private Long id;
     private Integer restaurantTableNumber;
-    private String displayStatus;  // EMPTY / ORDERED / SERVED
+    private String displayStatus;  // EMPTY / ORDERED / SERVED / PARTIALLY_PAID
     private ActiveOrderResponse activeOrder;
 
     public static RestaurantTableResponse fromEntity(RestaurantTable restaurantTable){
@@ -22,7 +22,9 @@ public class RestaurantTableResponse {
             return null;
         }
         Optional<Order> activeOrderOpt = restaurantTable.getOrders().stream()
-                .filter(order -> order.getStatus() == OrderStatus.ORDERED || order.getStatus() == OrderStatus.SERVED)
+                .filter(order -> order.getStatus() == OrderStatus.ORDERED
+                        || order.getStatus() == OrderStatus.SERVED
+                        || order.getStatus() == OrderStatus.PARTIALLY_PAID)
                 .max(Comparator.comparing(Order::getOrderTime));
 
         String status;
@@ -30,7 +32,7 @@ public class RestaurantTableResponse {
 
         if (activeOrderOpt.isPresent()) {
             Order activeOrder = activeOrderOpt.get();
-            status = activeOrderOpt.get().getStatus().name();// "ORDERED" or "SERVED"
+            status = activeOrderOpt.get().getStatus().name(); // "ORDERED", "SERVED", or "PARTIALLY_PAID"
             activeOrderResponse = ActiveOrderResponse.fromEntity(activeOrder);
         } else {
             status = "EMPTY";
@@ -55,7 +57,7 @@ public class RestaurantTableResponse {
         ActiveOrderResponse activeOrderResponse = null;
 
         if (latestActiveOrder != null) {
-            status = latestActiveOrder.getStatus().name(); // "ORDERED" or "SERVED"
+            status = latestActiveOrder.getStatus().name(); // "ORDERED", "SERVED", or "PARTIALLY_PAID"
             activeOrderResponse = ActiveOrderResponse.fromEntity(latestActiveOrder);
         } else {
             status = "EMPTY";
@@ -68,6 +70,4 @@ public class RestaurantTableResponse {
                 .activeOrder(activeOrderResponse)
                 .build();
     }
-
-// ... (기존 fromEntity 메서드)
 }
