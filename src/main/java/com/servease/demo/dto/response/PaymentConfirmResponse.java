@@ -1,6 +1,7 @@
 package com.servease.demo.dto.response;
 
 import com.servease.demo.dto.PaymentResponseDto;
+import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.enums.OrderStatus;
 
@@ -13,7 +14,8 @@ public record PaymentConfirmResponse(
         String method,
         String cardCompany,        // 카드 아니면 null
         String maskedCardNumber,   // 카드 아니면 null
-        String approvalNumber,     // 카드: approveNo, 그 외: paymentKey
+        String approvalNumber,     // 카드: approveNo, 그 외 결제수단: paymentKey
+        String cashApprovalNumber, // 현금 결제 시 영수증/전표 번호용
         ZonedDateTime approvedAt,
         Integer paidAmount,
         Integer remainingAmount,
@@ -36,7 +38,28 @@ public record PaymentConfirmResponse(
                 issuerCode,
                 maskedNumber,
                 approvalNumber,
+                null,
                 approvedAt,
+                order.getPaidAmount(),
+                order.getRemainingAmount(),
+                order.getStatus()
+        );
+    }
+
+    public static PaymentConfirmResponse fromCashPayment(CashPayment cashPayment, Order order) {
+        ZonedDateTime receivedAt = cashPayment.getReceivedAt() != null
+                ? cashPayment.getReceivedAt().atZoneSameInstant(ZoneId.of("Asia/Seoul"))
+                : null;
+
+        return new PaymentConfirmResponse(
+                order.getOrderId(),
+                order.getOrderId(),
+                "CASH",
+                null,
+                null,
+                null,
+                String.valueOf(cashPayment.getId()),
+                receivedAt,
                 order.getPaidAmount(),
                 order.getRemainingAmount(),
                 order.getStatus()
