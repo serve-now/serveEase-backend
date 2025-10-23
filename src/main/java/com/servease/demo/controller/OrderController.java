@@ -1,13 +1,14 @@
 package com.servease.demo.controller;
 
+import com.servease.demo.dto.request.CashPaymentRequest;
 import com.servease.demo.dto.request.OrderItemRequest;
 import com.servease.demo.dto.response.OrderResponse;
+import com.servease.demo.dto.response.PaymentConfirmResponse;
 import com.servease.demo.model.enums.OrderStatus;
-import com.servease.demo.repository.RestaurantTableRepository;
+import com.servease.demo.service.CashPaymentService;
 import com.servease.demo.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -21,18 +22,25 @@ import java.util.List;
 public class OrderController {
 
     private final OrderService orderService;
+    private final CashPaymentService cashPaymentService;
 
-    @Autowired
-    public OrderController(OrderService orderService, RestaurantTableRepository restaurantTableRepository) {
-        this.orderService = orderService;
+    @PostMapping("/{orderId}/payments/cash")
+    public ResponseEntity<PaymentConfirmResponse> payCash(
+            @PathVariable Long storeId,
+            @PathVariable Long orderId,
+            @Valid @RequestBody CashPaymentRequest request
+    ) {
+        PaymentConfirmResponse response = cashPaymentService.applyCashPayment(orderId, request.amount());
+        return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/{orderId}/pay")
-    public ResponseEntity<OrderResponse> completePayment(
+    @PostMapping("/{orderId}/payments/cash/full")
+    public ResponseEntity<PaymentConfirmResponse> payCashFully(
             @PathVariable Long storeId,
-            @PathVariable Long orderId) {
-        OrderResponse paidOrder = orderService.completePayment(orderId);
-        return ResponseEntity.ok(paidOrder);
+            @PathVariable Long orderId
+    ) {
+        PaymentConfirmResponse response = cashPaymentService.completeOutstandingPayment(orderId);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{orderId}")
