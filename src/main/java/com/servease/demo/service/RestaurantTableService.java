@@ -136,7 +136,7 @@ public class RestaurantTableService {
                 .map(RestaurantTable::getId)
                 .toList();
 
-        List<OrderStatus> activeStatuses = List.of(OrderStatus.ORDERED, OrderStatus.SERVED);
+        List<OrderStatus> activeStatuses = List.of(OrderStatus.ORDERED, OrderStatus.SERVED, OrderStatus.PARTIALLY_PAID);
         List<Order> activeOrders = orderRepository.findByRestaurantTableIdInAndStatusInOrderByOrderTimeDesc(tableIds, activeStatuses);
 
         Map<Long, Order> latestOrderMap = activeOrders.stream()
