@@ -14,11 +14,9 @@ import com.servease.demo.model.enums.RestaurantTableStatus;
 import com.servease.demo.repository.MenuRepository;
 import com.servease.demo.repository.OrderRepository;
 import com.servease.demo.repository.RestaurantTableRepository;
-import com.servease.demo.service.event.OrderFullyPaidEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +36,6 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final RestaurantTableRepository restaurantTableRepository;
     private final MenuRepository menuRepository;
-    private final ApplicationEventPublisher eventPublisher;
 
 
     @Transactional
@@ -99,6 +96,12 @@ public class OrderService {
     public Order getOrderByOrderIdWithLock(String externalOrderId) {
         return orderRepository.findByOrderIdWithLock(externalOrderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. orderId: " + externalOrderId));
+    }
+
+    @Transactional
+    public Order getOrderByIdWithLock(Long id) {
+        return orderRepository.findByIdWithLock(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID :" + id));
     }
 
     public Page<OrderResponse> getOrdersByStore(Long storeId, OrderStatus status, Pageable pageable) {
@@ -209,39 +212,6 @@ public class OrderService {
         restaurantTableRepository.save(restaurantTable);
         Order canceledOrder = orderRepository.save(order);
         return OrderResponse.fromEntity(canceledOrder);
-    }
-
-
-    @Transactional
-    public OrderResponse completePayment(Long id) {
-        Order order = orderRepository.findByIdWithLock(id)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "Order not found with ID :" + id));
-
-        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
-            throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID, "Status cannot be change, current status : " + order.getStatus());
-        }
-
-        order.syncPaymentAmountsWithTotal();
-
-        if (order.isPaid()) {
-            throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID);
-        }
-
-        int remainingAmount = order.getRemainingAmount();
-        if (remainingAmount <= 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "남은 결제 금액이 없습니다.");
-        }
-
-        boolean orderCompleted = order.recordPayment(remainingAmount);
-        releaseTableIfOrderCompleted(order);
-
-        if (orderCompleted) {
-            eventPublisher.publishEvent(new OrderFullyPaidEvent(order.getId()));
-        }
-
-        //결제가 완료되면 주문이 종결 -> 테이블 상태를 EMPTY 로 변경
-        Order updatedOrder = orderRepository.save(order);
-        return OrderResponse.fromEntity(updatedOrder);
     }
 
 
