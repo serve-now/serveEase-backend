@@ -50,4 +50,23 @@ public class CashPaymentService {
 
         return PaymentConfirmResponse.fromCashPayment(cashPayment, order);
     }
+
+
+    @Transactional
+    public PaymentConfirmResponse completeOutstandingPayment(Long orderId) {
+        Order order = orderService.getOrderByIdWithLock(orderId);
+
+        if (order.getStatus() == OrderStatus.CANCELED) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "취소된 주문은 결제할 수 없습니다.");
+        }
+
+        order.syncPaymentAmountsWithTotal();
+
+        int remainingAmount = order.getRemainingAmount();
+        if (remainingAmount <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "남은 결제 금액이 없습니다.");
+        }
+
+        return completeCashPayment(order, remainingAmount);
+    }
 }
