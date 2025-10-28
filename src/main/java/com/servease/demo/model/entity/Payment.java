@@ -43,6 +43,12 @@ public class Payment {
     @Column(name = "paid_total_after_payment", nullable = false)
     private Integer paidTotalAfterPayment;
 
+    @Column(name = "approved_at")
+    private OffsetDateTime approvedAt;
+
+    @Column(name = "method", length = 50)
+    private String method;
+
     @Lob
     @Column(name = "raw", columnDefinition = "TEXT", nullable = false)
     private String raw; // TossConfirm 성공 응답 전체
@@ -62,6 +68,8 @@ public class Payment {
                                String externalOrderId,
                                Integer amount,
                                Integer paidTotalAfterPayment,
+                               OffsetDateTime approvedAt,
+                               String method,
                                String rawJson) {
         return Payment.builder()
                 .paymentKey(paymentKey)
@@ -69,6 +77,8 @@ public class Payment {
                 .externalOrderId(externalOrderId)
                 .amount(amount)
                 .paidTotalAfterPayment(paidTotalAfterPayment)
+                .approvedAt(approvedAt)
+                .method(method)
                 .raw(rawJson)
                 .build();
     }
