@@ -26,6 +26,7 @@ public enum ErrorCode {
     ORDER_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "E012", "해당 주문 항목을 찾을 수 없습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND,"E016","해당 유저를 찾을 수 없습니다."),
     STORE_NOT_FOUND(HttpStatus.NOT_FOUND,"E017","해당 가게를 찾을 수 없습니다."),
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "E030", "결제 내역을 찾을 수 없습니다."),
 
 
     // 409 Conflict
