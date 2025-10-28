@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.servease.demo.dto.PaymentResponseDto;
 import com.servease.demo.dto.request.TossConfirmRequest;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
+import com.servease.demo.dto.response.PaymentDetailResponse;
+import com.servease.demo.dto.response.PaymentListResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.infra.TossPaymentClient;
@@ -16,8 +18,11 @@ import com.servease.demo.service.event.OrderFullyPaidEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
@@ -50,6 +55,21 @@ public class PaymentService {
         }
 
         return paymentConfirmResponse;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PaymentListResponse> getPayments(Pageable pageable) {
+        return paymentRepository.findAll(pageable)
+                .map(PaymentListResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentDetailResponse getPaymentDetail(Long paymentId) {
+        Payment payment = paymentRepository.findWithOrderById(paymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다."));
+
+        PaymentResponseDto paymentResponseDto = deserializePaymentRaw(payment.getRaw());
+        return PaymentDetailResponse.of(payment, paymentResponseDto);
     }
 
     //내부 시스템에 반영 (save직전까지)
@@ -95,6 +115,8 @@ public class PaymentService {
                 tossConfirmRequest.orderId(),
                 requestedAmount,
                 order.getPaidAmount(),
+                paymentResponseDto.getApprovedAt(),
+                paymentResponseDto.getMethod(),
                 serializeResponse(paymentResponseDto)
         );
 
@@ -105,6 +127,19 @@ public class PaymentService {
         }
 
         return PaymentConfirmResponse.from(paymentResponseDto, order);
+    }
+
+    private PaymentResponseDto deserializePaymentRaw(String rawJson) {
+        if (rawJson == null || rawJson.isBlank()) {
+            return null;
+        }
+
+        try {
+            return objectMapper.readValue(rawJson, PaymentResponseDto.class);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to deserialize payment response", e);
+            return null;
+        }
     }
 
     //paymentResponseDto 를 문자열로 저장하기위해 json 으로변환
