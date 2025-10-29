@@ -15,6 +15,7 @@ import com.servease.demo.repository.MenuRepository;
 import com.servease.demo.repository.OrderRepository;
 import com.servease.demo.repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
+@Slf4j
 public class OrderService {
 
     private final OrderRepository orderRepository;
@@ -84,6 +86,8 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(newOrder);
         targetTable.updateStatus(RestaurantTableStatus.USING);
+        log.info("[ORDER] create order persisted tableId={}, orderDbId={}, orderExternalId={}, totalPrice={}",
+                targetTable.getId(), savedOrder.getId(), savedOrder.getOrderId(), savedOrder.getTotalPrice());
         return OrderResponse.fromEntity(savedOrder);
     }
 
