@@ -4,6 +4,8 @@ import com.servease.demo.service.SettlementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -13,7 +15,8 @@ public class OrderSettlementEventHandler {
 
     private final SettlementService settlementService;
 
-    @EventListener()
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleOrderFullyPaid(OrderFullyPaidEvent event) {
         settlementService.settleOrder(event.orderId());
     }
