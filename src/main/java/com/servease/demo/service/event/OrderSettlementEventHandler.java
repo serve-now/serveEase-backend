@@ -12,7 +12,7 @@ public class OrderSettlementEventHandler {
 
     private final SettlementService settlementService;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handleOrderFullyPaid(OrderFullyPaidEvent event) {
         settlementService.settleOrder(event.orderId());
     }
