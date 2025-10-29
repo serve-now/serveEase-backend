@@ -9,6 +9,7 @@ import com.servease.demo.service.CashPaymentService;
 import com.servease.demo.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/stores/{storeId}/orders")
 @RequiredArgsConstructor
+@Slf4j
 public class OrderController {
 
     private final OrderService orderService;
@@ -30,7 +32,9 @@ public class OrderController {
             @PathVariable Long orderId,
             @Valid @RequestBody CashPaymentRequest request
     ) {
+        log.info("[ORDER] cash payment request storeId={}, orderId={}, amount={}", storeId, orderId, request.amount());
         PaymentConfirmResponse response = cashPaymentService.applyCashPayment(orderId, request.amount());
+        log.info("[ORDER] cash payment success storeId={}, orderId={}, remainingAmount={}", storeId, orderId, response.remainingAmount());
         return ResponseEntity.ok(response);
     }
 
@@ -39,7 +43,9 @@ public class OrderController {
             @PathVariable Long storeId,
             @PathVariable Long orderId
     ) {
+        log.info("[ORDER] cash payment full request storeId={}, orderId={}", storeId, orderId);
         PaymentConfirmResponse response = cashPaymentService.completeOutstandingPayment(orderId);
+        log.info("[ORDER] cash payment full success storeId={}, orderId={}, remainingAmount={}", storeId, orderId, response.remainingAmount());
         return ResponseEntity.ok(response);
     }
 
@@ -47,6 +53,7 @@ public class OrderController {
     public ResponseEntity<OrderResponse> getOrderById(
             @PathVariable Long storeId,
             @PathVariable Long orderId) {
+        log.info("[ORDER] get order request storeId={}, orderId={}", storeId, orderId);
         OrderResponse orderResponse = orderService.getOrderById(orderId);
         return ResponseEntity.ok(orderResponse);
     }
@@ -56,6 +63,8 @@ public class OrderController {
             @PathVariable Long storeId,
             @RequestParam(required = false) OrderStatus status,
             Pageable pageable) {
+        log.info("[ORDER] list orders request storeId={}, status={}, pageNumber={}, pageSize={}",
+                storeId, status, pageable.getPageNumber(), pageable.getPageSize());
         Page<OrderResponse> orderResponses = orderService.getOrdersByStore(storeId, status, pageable);
         return ResponseEntity.ok(orderResponses);
     }
@@ -66,6 +75,8 @@ public class OrderController {
             @PathVariable Long storeId,
             @PathVariable Long orderId,
             @RequestBody @Valid List<OrderItemRequest> orderItemRequests) {
+        log.info("[ORDER] add items request storeId={}, orderId={}, itemsCount={}",
+                storeId, orderId, orderItemRequests == null ? 0 : orderItemRequests.size());
         OrderResponse updatedOrder = orderService.addItemsToOrder(orderId, orderItemRequests);
         return ResponseEntity.ok(updatedOrder);
     }
@@ -75,6 +86,7 @@ public class OrderController {
     public ResponseEntity<OrderResponse> cancelOrderById(
             @PathVariable Long storeId,
             @PathVariable Long orderId) {
+        log.info("[ORDER] cancel request storeId={}, orderId={}", storeId, orderId);
         OrderResponse canceledOrder = orderService.cancelOrder(orderId);
         return ResponseEntity.ok(canceledOrder);
     }
@@ -84,12 +96,15 @@ public class OrderController {
             @PathVariable Long storeId,
             @PathVariable Long orderId,
             @PathVariable Long orderItemId) {
+        log.info("[ORDER] remove item request storeId={}, orderId={}, orderItemId={}",
+                storeId, orderId, orderItemId);
         OrderResponse updatedOrder = orderService.removeOrderItem(orderId, orderItemId);
         return ResponseEntity.ok(updatedOrder);
     }
 
     @PatchMapping("/{orderId}/serve")
     public ResponseEntity<OrderResponse> markAsServed(@PathVariable Long orderId) {
+        log.info("[ORDER] mark as served request orderId={}", orderId);
         OrderResponse servedOrder = orderService.markOrderAsServed(orderId);
         return ResponseEntity.ok(servedOrder);
     }
