@@ -9,12 +9,16 @@ import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.repository.CashPaymentRepository;
 import com.servease.demo.service.event.OrderFullyPaidEvent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CashPaymentService {
 
     private final CashPaymentRepository cashPaymentRepository;
@@ -45,7 +49,23 @@ public class CashPaymentService {
         );
 
         if (orderCompleted) {
-            eventPublisher.publishEvent(new OrderFullyPaidEvent(order.getId()));
+            Long orderId = order.getId();
+            Integer paidAmount = order.getPaidAmount();
+
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        log.info("[PAYMENT] Order fully paid by cash. publishing settlement event orderId={}, totalPaid={}",
+                                orderId, paidAmount);
+                        eventPublisher.publishEvent(new OrderFullyPaidEvent(orderId));
+                    }
+                });
+            } else {
+                log.warn("[PAYMENT] Transaction synchronization inactive. publishing cash settlement event immediately orderId={}",
+                        orderId);
+                eventPublisher.publishEvent(new OrderFullyPaidEvent(orderId));
+            }
         }
 
         return PaymentConfirmResponse.fromCashPayment(cashPayment, order);
