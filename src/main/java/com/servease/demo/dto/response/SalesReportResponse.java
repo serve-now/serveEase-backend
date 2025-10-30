@@ -39,6 +39,7 @@ public class SalesReportResponse {
     public static class SeriesItem {
         private final LocalDate date;
         private final YearMonth month;
+        private final int monthValue;
         private final Integer week;
         private final long netSales;
         private final int orderCount;
