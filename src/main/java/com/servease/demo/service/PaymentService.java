@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.servease.demo.dto.PaymentResponseDto;
 import com.servease.demo.model.enums.PaymentMethodFilter;
+import com.servease.demo.model.enums.PaymentOrderTypeFilter;
 import com.servease.demo.model.enums.PaymentQuickRange;
 import com.servease.demo.dto.request.PaymentSearchRequest;
 import com.servease.demo.dto.request.TossConfirmRequest;
@@ -16,6 +17,7 @@ import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.infra.TossPaymentClient;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
+import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.repository.PaymentRepository;
 import com.servease.demo.service.event.OrderFullyPaidEvent;
 import lombok.RequiredArgsConstructor;
@@ -205,6 +207,10 @@ public class PaymentService {
             specification = specification.and(matchesMethod(searchRequest.paymentMethod()));
         }
 
+        if (searchRequest.orderType() != null) {
+            specification = specification.and(matchesOrderType(searchRequest.orderType()));
+        }
+
         return specification;
     }
 
@@ -220,6 +226,33 @@ public class PaymentService {
             };
 
             return cb.and(notNull, matches);
+        };
+    }
+
+    private Specification<Payment> matchesOrderType(PaymentOrderTypeFilter orderTypeFilter) {
+        return (root, query, cb) -> {
+            var orderJoin = root.join("order");
+            var statusPath = orderJoin.get("status");
+            var paidTotalPath = root.get("paidTotalAfterPayment").as(Integer.class);
+            var amountPath = root.get("amount").as(Integer.class);
+
+            return switch (orderTypeFilter) {
+                case CANCELED -> cb.equal(statusPath, OrderStatus.CANCELED);
+                case PARTIAL -> cb.or(
+                        cb.equal(statusPath, OrderStatus.PARTIALLY_PAID),
+                        cb.and(
+                                cb.equal(statusPath, OrderStatus.COMPLETED),
+                                cb.greaterThan(paidTotalPath, amountPath)
+                        )
+                );
+                case NORMAL -> cb.and(
+                        cb.or(
+                                cb.isNull(statusPath),
+                                cb.notEqual(statusPath, OrderStatus.CANCELED)
+                        ),
+                        cb.lessThanOrEqualTo(paidTotalPath, amountPath)
+                );
+            };
         };
     }
 
