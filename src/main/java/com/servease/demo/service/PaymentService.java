@@ -62,7 +62,13 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public Page<PaymentListResponse> getPayments(Pageable pageable) {
-        return paymentRepository.findAll(pageable)
+        return getPayments(pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PaymentListResponse> getPayments(Pageable pageable, PaymentSearchRequest searchRequest) {
+        Specification<Payment> specification = buildSpecification(searchRequest);
+        return paymentRepository.findAll(specification, pageable)
                 .map(PaymentListResponse::from);
     }
 
