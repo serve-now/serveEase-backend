@@ -16,6 +16,7 @@ import java.time.YearMonth;
 import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -50,7 +51,7 @@ public class SalesReportService {
         BigDecimal totalAvgOrderValue = calculateAverage(totalNetSales, totalOrders);
 
         List<SalesReportResponse.SeriesItem> series = switch (periodType) {
-            case DAILY -> mapDailySeries(dailyRecords);
+            case DAILY -> mapDailySeries(from, to, dailyRecords);
             case WEEKLY -> mapWeeklySeries(salesDailyFetchService.findWeeklyAggregates(store.getId(), from, to));
             case MONTHLY -> mapMonthlySeries(salesDailyFetchService.findMonthlyAggregates(store.getId(), from, to));
         };
@@ -87,17 +88,31 @@ public class SalesReportService {
         }
     }
 
-    private List<SalesReportResponse.SeriesItem> mapDailySeries(List<SalesDaily> records) {
-        return records.stream()
-                .map(record -> SalesReportResponse.SeriesItem.builder()
-                        .date(record.getDate())
-                        .month(YearMonth.from(record.getDate()))
-                        .week(null)
-                        .netSales(record.getDailyNetSales())
-                        .orderCount(record.getOrderCount())
-                        .canceledAmount(record.getDailyCanceledAmount())
-                        .averageOrderValue(calculateAverage(record.getDailyNetSales(), record.getOrderCount()))
-                        .build())
+    private List<SalesReportResponse.SeriesItem> mapDailySeries(LocalDate from,
+                                                                LocalDate to,
+                                                                List<SalesDaily> records) {
+        Map<LocalDate, SalesDaily> recordMap = records.stream()
+                .collect(Collectors.toMap(
+                        SalesDaily::getDate,
+                        record -> record,
+                        (existing, replacement) -> replacement));
+
+        return from.datesUntil(to.plusDays(1))
+                .map(date -> {
+                    SalesDaily record = recordMap.get(date);
+                    long netSales = record != null ? record.getDailyNetSales() : 0L;
+                    int orderCount = record != null ? record.getOrderCount() : 0;
+                    long canceledAmount = record != null ? record.getDailyCanceledAmount() : 0L;
+                    return SalesReportResponse.SeriesItem.builder()
+                            .date(date)
+                            .month(YearMonth.from(date))
+                            .week(null)
+                            .netSales(netSales)
+                            .orderCount(orderCount)
+                            .canceledAmount(canceledAmount)
+                            .averageOrderValue(calculateAverage(netSales, orderCount))
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 
