@@ -11,6 +11,7 @@ import com.servease.demo.service.OrderService;
 import com.servease.demo.service.RestaurantTableService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/stores/{storeId}/tables")
 @RequiredArgsConstructor
+@Slf4j
 public class RestaurantTableController {
 
     private final OrderService orderService;
@@ -47,7 +49,10 @@ public class RestaurantTableController {
             @PathVariable Long storeId,
             @PathVariable Long tableId,
             @RequestBody @Valid OrderCreateRequest request) {
+        int itemCount = request == null || request.getOrderItems() == null ? 0 : request.getOrderItems().size();
+        log.info("[ORDER] create order request storeId={}, tableId={}, itemsCount={}", storeId, tableId, itemCount);
         OrderResponse newOrder = orderService.createOrder(tableId, request);
+        log.info("[ORDER] create order response storeId={}, tableId={}, orderId={}", storeId, tableId, newOrder.getOrderId());
         return ResponseEntity.status(HttpStatus.CREATED).body(newOrder);
     }
 
