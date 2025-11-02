@@ -4,6 +4,7 @@ package com.servease.demo.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.servease.demo.dto.PaymentResponseDto;
+import com.servease.demo.model.enums.PaymentMethodFilter;
 import com.servease.demo.dto.request.TossConfirmRequest;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
 import com.servease.demo.dto.response.PaymentDetailResponse;
@@ -20,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -150,6 +152,23 @@ public class PaymentService {
             log.warn("Failed to serialize payment response", e);
             return response.toString();
         }
+    }
+
+
+    //동적 쿼리 조합 Specification 이용하여 where 절을 객체로 표현
+    private Specification<Payment> matchesMethod(PaymentMethodFilter methodFilter) {
+        return (root, query, cb) -> {
+            var methodPath = root.get("method");
+            var notNull = cb.isNotNull(methodPath);
+            var upperMethod = cb.upper(methodPath.as(String.class));
+
+            var matches = switch (methodFilter) {
+                case CARD -> upperMethod.in("CARD", "EASY_PAY");
+                default -> cb.equal(upperMethod, methodFilter.name());
+            };
+
+            return cb.and(notNull, matches);
+        };
     }
 
 }
