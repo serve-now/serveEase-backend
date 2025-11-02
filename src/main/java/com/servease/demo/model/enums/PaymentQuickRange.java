@@ -1,4 +1,4 @@
-package com.servease.demo.dto.request;
+package com.servease.demo.model.enums;
 
 public enum PaymentQuickRange {
     TODAY,
