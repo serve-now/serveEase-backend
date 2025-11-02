@@ -4,6 +4,9 @@ package com.servease.demo.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.servease.demo.dto.PaymentResponseDto;
+import com.servease.demo.model.enums.PaymentMethodFilter;
+import com.servease.demo.model.enums.PaymentQuickRange;
+import com.servease.demo.dto.request.PaymentSearchRequest;
 import com.servease.demo.dto.request.TossConfirmRequest;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
 import com.servease.demo.dto.response.PaymentDetailResponse;
@@ -20,12 +23,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 @Slf4j
 @Service
@@ -38,6 +46,7 @@ public class PaymentService {
     private final PlatformTransactionManager transactionManager;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
+    private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Seoul");
 
     // 사용자가 결제창에서 인증 끝내고 successUrl로 돌아온 순간에 paymentKey, orderId, amount를 서버에 저장
     // 같은트랜잭션으로 saveAndConfirm 바로 호출
@@ -61,7 +70,13 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public Page<PaymentListResponse> getPayments(Pageable pageable) {
-        return paymentRepository.findAll(pageable)
+        return getPayments(pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PaymentListResponse> getPayments(Pageable pageable, PaymentSearchRequest searchRequest) {
+        Specification<Payment> specification = buildSpecification(searchRequest);
+        return paymentRepository.findAll(specification, pageable)
                 .map(PaymentListResponse::from);
     }
 
@@ -169,6 +184,117 @@ public class PaymentService {
             log.warn("Failed to serialize payment response", e);
             return response.toString();
         }
+    }
+
+
+    //동적 쿼리 조합 Specification 이용하여 where 절을 객체로 표현
+    //Specification을 조립하는 buildSpecification 과 matchesMethod 로 실행
+    private Specification<Payment> buildSpecification(PaymentSearchRequest searchRequest) {
+        Specification<Payment> specification = alwaysTrue();
+
+        if (searchRequest == null) {
+            return specification;
+        }
+
+        DateRange dateRange = calculateSearchDateRange(searchRequest);
+        if (dateRange != null) {
+            specification = specification.and(matchesDateBetween(dateRange));
+        }
+
+        if (searchRequest.paymentMethod() != null) {
+            specification = specification.and(matchesMethod(searchRequest.paymentMethod()));
+        }
+
+        return specification;
+    }
+
+    private Specification<Payment> matchesMethod(PaymentMethodFilter methodFilter) {
+        return (root, query, cb) -> {
+            var methodPath = root.get("method");
+            var notNull = cb.isNotNull(methodPath);
+            var upperMethod = cb.upper(methodPath.as(String.class));
+
+            var matches = switch (methodFilter) {
+                case CARD -> upperMethod.in("CARD", "EASY_PAY");
+                default -> cb.equal(upperMethod, methodFilter.name());
+            };
+
+            return cb.and(notNull, matches);
+        };
+    }
+
+    private Specification<Payment> matchesDateBetween(DateRange dateRange) {
+        return (root, query, cb) -> {
+            var approvedAtPath = root.<OffsetDateTime>get("approvedAt");
+            var createdAtPath = root.<OffsetDateTime>get("createdAt");
+
+            var approvedPredicate = cb.and(
+                    cb.isNotNull(approvedAtPath),
+                    cb.greaterThanOrEqualTo(approvedAtPath, dateRange.from()),
+                    cb.lessThan(approvedAtPath, dateRange.to())
+            );
+
+            var createdPredicate = cb.and(
+                    cb.isNull(approvedAtPath),
+                    cb.greaterThanOrEqualTo(createdAtPath, dateRange.from()),
+                    cb.lessThan(createdAtPath, dateRange.to())
+            );
+
+            return cb.or(approvedPredicate, createdPredicate);
+        };
+    }
+
+    private DateRange calculateSearchDateRange(PaymentSearchRequest searchRequest) {
+        PaymentQuickRange quickRange = searchRequest.quickRange();
+        LocalDate fromDate = searchRequest.from();
+        LocalDate toDate = searchRequest.to();
+
+        if (quickRange != null && quickRange != PaymentQuickRange.CUSTOM && (fromDate != null || toDate != null)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "단축 기간과 직접 입력 기간은 동시에 사용할 수 없습니다.");
+        }
+
+        if ((fromDate == null) != (toDate == null)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "기간 검색에는 시작일과 종료일이 모두 필요합니다.");
+        }
+
+        if ((quickRange == null || quickRange == PaymentQuickRange.CUSTOM) && fromDate == null) {
+            return null;
+        }
+
+        if (quickRange == PaymentQuickRange.CUSTOM || quickRange == null) {
+            if (fromDate == null || toDate == null) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "시작일과 종료일을 모두 입력해야 합니다.");
+            }
+            if (toDate.isBefore(fromDate)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "종료일은 시작일보다 빠를 수 없습니다.");
+            }
+            return new DateRange(startOfDay(fromDate), startOfDay(toDate.plusDays(1)));
+        }
+
+        LocalDate today = LocalDate.now(DEFAULT_ZONE);
+        return switch (quickRange) {
+            case TODAY -> new DateRange(startOfDay(today), startOfDay(today.plusDays(1)));
+            case LAST_7_DAYS -> {
+                LocalDate startDate = today.minusDays(6);
+                yield new DateRange(startOfDay(startDate), startOfDay(today.plusDays(1)));
+            }
+            case LAST_30_DAYS -> {
+                LocalDate startDate = today.minusDays(29);
+                yield new DateRange(startOfDay(startDate), startOfDay(today.plusDays(1)));
+            }
+            case CUSTOM -> throw new IllegalStateException("CUSTOM 범위는 별도로 처리됩니다.");
+        };
+    }
+
+    private Specification<Payment> alwaysTrue() {
+        return (root, query, cb) -> cb.conjunction();
+    }
+
+    private OffsetDateTime startOfDay(LocalDate date) {
+        return date.atStartOfDay(DEFAULT_ZONE).toOffsetDateTime();
+    }
+
+    private record DateRange(OffsetDateTime from, OffsetDateTime to) {
     }
 
 }
