@@ -1,6 +1,5 @@
 package com.servease.demo.service;
 
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.servease.demo.dto.PaymentResponseDto;
@@ -36,6 +35,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -220,12 +222,15 @@ public class PaymentService {
             var notNull = cb.isNotNull(methodPath);
             var upperMethod = cb.upper(methodPath.as(String.class));
 
-            var matches = switch (methodFilter) {
-                case CARD -> upperMethod.in("CARD", "EASY_PAY");
-                default -> cb.equal(upperMethod, methodFilter.name());
-            };
+            Set<String> acceptedMethods = methodFilter.acceptedMethods().stream()
+                    .map(method -> method.toUpperCase(Locale.ROOT))
+                    .collect(Collectors.toSet());
 
-            return cb.and(notNull, matches);
+            if (acceptedMethods.isEmpty()) {
+                return cb.disjunction();
+            }
+
+            return cb.and(notNull, upperMethod.in(acceptedMethods));
         };
     }
 

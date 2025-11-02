@@ -3,9 +3,9 @@ package com.servease.demo.model.enums;
 import java.util.Set;
 
 public enum PaymentMethodFilter {
-    CARD(Set.of("CARD", "EASY_PAY")),
-    CASH(Set.of("CASH")),
-    EASY_PAY(Set.of("EASY_PAY"));
+    CARD(Set.of("CARD", "EASY_PAY", "카드")),
+    CASH(Set.of("CASH", "현금")),
+    EASY_PAY(Set.of("EASY_PAY", "간편결제"));
 
     private final Set<String> acceptedMethods;
 
