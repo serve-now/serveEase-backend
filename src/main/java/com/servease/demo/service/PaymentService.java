@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.servease.demo.dto.PaymentResponseDto;
 import com.servease.demo.model.enums.PaymentMethodFilter;
+import com.servease.demo.dto.request.PaymentSearchRequest;
 import com.servease.demo.dto.request.TossConfirmRequest;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
 import com.servease.demo.dto.response.PaymentDetailResponse;
@@ -156,6 +157,15 @@ public class PaymentService {
 
 
     //동적 쿼리 조합 Specification 이용하여 where 절을 객체로 표현
+    //Specification을 조립하는 buildSpecification 과 matchesMethod 로 실행
+    private Specification<Payment> buildSpecification(PaymentSearchRequest searchRequest) {
+        if (searchRequest == null || searchRequest.paymentMethod() == null) {
+            return Specification.where(null);
+        }
+
+        return matchesMethod(searchRequest.paymentMethod());
+    }
+
     private Specification<Payment> matchesMethod(PaymentMethodFilter methodFilter) {
         return (root, query, cb) -> {
             var methodPath = root.get("method");
