@@ -10,13 +10,15 @@ import java.util.Optional;
 @Repository
 public interface MenuRepository extends JpaRepository<Menu, Long> {
 
-    Optional<Menu> findByStoreIdAndName(Long storeId, String name);
+    boolean existsByCategoryIdAndDeletedAtIsNull(Long categoryId);
 
-    List<Menu> findAllByStoreId(Long storeId);
+    List<Menu> findAllByIdInAndAvailableIsTrueAndDeletedAtIsNull(List<Long> menuIds);
 
-    List<Menu> findByStoreIdAndAvailable(Long storeId, boolean available);
+    Optional<Menu> findByIdAndDeletedAtIsNull(Long id);
 
-    boolean existsByCategoryId(Long categoryId);
+    Optional<Menu> findByStoreIdAndNameAndDeletedAtIsNull(Long storeId, String name);
 
-    List<Menu> findAllByIdInAndAvailableIsTrue(List<Long> menuIds);
+    List<Menu> findAllByStoreIdAndDeletedAtIsNull(Long storeId);
+
+    List<Menu> findByStoreIdAndAvailableAndDeletedAtIsNull(Long storeId, boolean available);
 }
