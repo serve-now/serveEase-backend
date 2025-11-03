@@ -71,7 +71,7 @@ public class CategoryService {
     public void deleteCategory(Long storeId, Long categoryId) {
         Category category = findCategoryAndVerifyOwnership(storeId, categoryId);
 
-        if (menuRepository.existsByCategoryId(categoryId)) {
+        if (menuRepository.existsByCategoryIdAndDeletedAtIsNull(categoryId)) {
             throw new BusinessException(ErrorCode.CATEGORY_IN_USE, "Category id=" + categoryId + " is still referenced by existing menus");
         }
         categoryRepository.deleteById(categoryId);
