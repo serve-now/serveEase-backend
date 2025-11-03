@@ -33,6 +33,7 @@ public enum ErrorCode {
     DUPLICATE_MENU_NAME(HttpStatus.CONFLICT, "E005", "이미 존재하는 메뉴 이름입니다."),
     DUPLICATE_CATEGORY_NAME(HttpStatus.CONFLICT, "E006", "이미 존재하는 카테고리 이름입니다."),
     CATEGORY_IN_USE(HttpStatus.CONFLICT, "E007", "해당 카테고리를 사용하는 메뉴가 있어 삭제할 수 없습니다."),
+    MENU_IN_USE(HttpStatus.CONFLICT, "E031", "해당 메뉴는 진행 중인 주문에서 사용 중이라 삭제할 수 없습니다."),
     ORDER_STATUS_NOT_VALID(HttpStatus.CONFLICT, "E008", "완료되거나 취소된 주문입니다."),
     DUPLICATE_TABLE_NUMBER(HttpStatus.CONFLICT, "E011", "이미 존재하는 테이블 번호입니다."),
     ACTIVE_ORDER_EXISTS(HttpStatus.CONFLICT, "E013", "이미 진행 중인 주문이 테이블에 존재합니다."),
