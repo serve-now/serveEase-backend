@@ -65,13 +65,17 @@ public class OrderService {
                 .map(OrderItemRequest::getMenuId)
                 .collect(Collectors.toList());
 
-        List<Menu> menus = menuRepository.findAllByIdInAndAvailableIsTrue(menuIds);
+        List<Menu> menus = menuRepository.findAllByIdInAndAvailableIsTrueAndDeletedAtIsNull(menuIds);
 
         Map<Long, Menu> menuMap = menus.stream()
                 .collect(Collectors.toMap(Menu::getId, Function.identity()));
 
         for (OrderItemRequest itemRequest : request.getOrderItems()) {
             Menu menu = menuMap.get(itemRequest.getMenuId());
+            if (menu == null) {
+                throw new BusinessException(ErrorCode.MENU_NOT_FOUND,
+                        "Menu item not found or unavailable with ID: " + itemRequest.getMenuId());
+            }
 
             OrderItem orderItem = OrderItem.builder()
                     .menu(menu)
@@ -141,7 +145,7 @@ public class OrderService {
         }
 
         for (OrderItemRequest itemRequest : itemRequests) {
-            Menu menu = menuRepository.findById(itemRequest.getMenuId())
+            Menu menu = menuRepository.findByIdAndDeletedAtIsNull(itemRequest.getMenuId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.MENU_NOT_FOUND, "Menu item not found with ID: " + itemRequest.getMenuId()));
 
             if (!menu.isAvailable()) {

@@ -2,6 +2,9 @@ package com.servease.demo.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLDelete;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "menus")
@@ -10,6 +13,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@SQLDelete(sql = "UPDATE menus SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 public class Menu {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,6 +35,9 @@ public class Menu {
 
     @Column(name = "available", nullable = false)
     private boolean available;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     public void updateMenu(
             String name,

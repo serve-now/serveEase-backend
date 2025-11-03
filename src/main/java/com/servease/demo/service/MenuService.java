@@ -8,8 +8,10 @@ import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.entity.Category;
 import com.servease.demo.model.entity.Menu;
 import com.servease.demo.model.entity.Store;
+import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.repository.CategoryRepository;
 import com.servease.demo.repository.MenuRepository;
+import com.servease.demo.repository.OrderItemRepository;
 import com.servease.demo.repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,9 +25,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MenuService {
 
+    private static final List<OrderStatus> ACTIVE_ORDER_STATUSES = List.of(
+            OrderStatus.ORDERED,
+            OrderStatus.SERVED,
+            OrderStatus.PARTIALLY_PAID
+    );
+
     private final MenuRepository menuRepository;
     private final StoreRepository storeRepository;
     private final CategoryRepository categoryRepository;
+    private final OrderItemRepository orderItemRepository;
 
 
     @Transactional
@@ -40,7 +49,7 @@ public class MenuService {
             throw new BusinessException(ErrorCode.FORBIDDEN, "This category does not belong to the specified store.");
         }
 
-        if (menuRepository.findByStoreIdAndName(storeId, request.getName()).isPresent()) {
+        if (menuRepository.findByStoreIdAndNameAndDeletedAtIsNull(storeId, request.getName()).isPresent()) {
             throw new BusinessException(ErrorCode.DUPLICATE_MENU_NAME, "Menu name '" + request.getName() + "' already exists in this store.");
         }
 
@@ -58,13 +67,13 @@ public class MenuService {
 
 
     public List<MenuResponse> getAllMenusByStore(Long storeId) {
-        return menuRepository.findAllByStoreId(storeId).stream()
+        return menuRepository.findAllByStoreIdAndDeletedAtIsNull(storeId).stream()
                 .map(MenuResponse::fromEntity)
                 .collect(Collectors.toList());
     }
 
     public List<MenuResponse> getAvailableMenusByStore(Long storeId) {
-        return menuRepository.findByStoreIdAndAvailable(storeId, true).stream()
+        return menuRepository.findByStoreIdAndAvailableAndDeletedAtIsNull(storeId, true).stream()
                 .map(MenuResponse::fromEntity)
                 .collect(Collectors.toList());
     }
@@ -91,11 +100,17 @@ public class MenuService {
     @Transactional
     public void deleteMenu(Long storeId, Long menuId) {
         Menu menu = findMenuAndVerifyOwnership(storeId, menuId);
+
+        if (orderItemRepository.existsByMenuIdAndOrder_StatusIn(menuId, ACTIVE_ORDER_STATUSES)) {
+            throw new BusinessException(ErrorCode.MENU_IN_USE,
+                    "Menu id=" + menuId + " is linked to active orders and cannot be deleted.");
+        }
+
         menuRepository.delete(menu);
     }
 
     private Menu findMenuAndVerifyOwnership(Long storeId, Long menuId) {
-        Menu menu = menuRepository.findById(menuId)
+        Menu menu = menuRepository.findByIdAndDeletedAtIsNull(menuId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MENU_NOT_FOUND, "Menu not found with ID: " + menuId));
 
         if (!menu.getStore().getId().equals(storeId)) {
