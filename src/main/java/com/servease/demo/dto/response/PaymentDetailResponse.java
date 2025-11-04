@@ -1,7 +1,6 @@
 package com.servease.demo.dto.response;
 
 import com.servease.demo.dto.PaymentResponseDto;
-import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
 
@@ -104,45 +103,5 @@ public record PaymentDetailResponse(
                 : List.of();
 
         return from(payment, order, paymentResponseDto, orderItemSummaries);
-    }
-
-    public static PaymentDetailResponse fromCashPayment(CashPayment cashPayment, Order order) {
-        Objects.requireNonNull(cashPayment, "cashPayment 가 null 입니다.");
-        Objects.requireNonNull(order, "order 가 null 입니다.");
-
-        Integer amount = cashPayment.getAmount();
-        Integer vatAmount = amount != null ? Math.round(amount * 0.1f) : null;
-
-        ZonedDateTime receivedAt = null;
-        if (cashPayment.getReceivedAt() != null) {
-            receivedAt = cashPayment.getReceivedAt().atZoneSameInstant(ZoneId.of("Asia/Seoul"));
-        }
-
-        Integer tableNumber = null;
-        if (order.getRestaurantTable() != null) {
-            tableNumber = order.getRestaurantTable().getTableNumber();
-        }
-
-        List<OrderItemSummaryResponse> orderItemSummaries = order.getOrderItems() != null
-                ? order.getOrderItems().stream()
-                        .map(OrderItemSummaryResponse::fromEntity)
-                        .toList()
-                : List.of();
-
-        return new PaymentDetailResponse(
-                cashPayment.getId(),
-                null,
-                order.getTotalPrice(),
-                amount,
-                vatAmount,
-                order.getRemainingAmount(),
-                "CASH",
-                order.getStatus() != null ? order.getStatus().name() : null,
-                receivedAt,
-                null,
-                null,
-                tableNumber,
-                List.copyOf(orderItemSummaries)
-        );
     }
 }
