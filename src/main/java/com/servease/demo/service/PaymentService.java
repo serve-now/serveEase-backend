@@ -3,40 +3,41 @@ package com.servease.demo.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.servease.demo.dto.PaymentResponseDto;
-import com.servease.demo.model.enums.PaymentMethodFilter;
-import com.servease.demo.model.enums.PaymentOrderTypeFilter;
-import com.servease.demo.model.enums.PaymentQuickRange;
 import com.servease.demo.dto.request.PaymentSearchRequest;
 import com.servease.demo.dto.request.TossConfirmRequest;
+import com.servease.demo.dto.response.OrderPaymentDetailResponse;
+import com.servease.demo.dto.response.OrderPaymentListResponse;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
-import com.servease.demo.dto.response.PaymentDetailResponse;
-import com.servease.demo.dto.response.PaymentListResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.infra.TossPaymentClient;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
 import com.servease.demo.model.enums.OrderStatus;
+import com.servease.demo.model.enums.PaymentMethodFilter;
+import com.servease.demo.model.enums.PaymentOrderTypeFilter;
+import com.servease.demo.model.enums.PaymentQuickRange;
 import com.servease.demo.repository.PaymentRepository;
 import com.servease.demo.service.event.OrderFullyPaidEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -73,24 +74,72 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PaymentListResponse> getPayments(Pageable pageable) {
+    public Page<OrderPaymentListResponse> getPayments(Pageable pageable) {
         return getPayments(pageable, null);
     }
 
     @Transactional(readOnly = true)
-    public Page<PaymentListResponse> getPayments(Pageable pageable, PaymentSearchRequest searchRequest) {
+    public Page<OrderPaymentListResponse> getPayments(Pageable pageable, PaymentSearchRequest searchRequest) {
         Specification<Payment> specification = buildSpecification(searchRequest);
-        return paymentRepository.findAll(specification, pageable)
-                .map(PaymentListResponse::from);
+        Sort sort = resolveSort(pageable);
+
+        List<Payment> payments = paymentRepository.findAll(specification, sort);
+
+        Map<String, List<Payment>> groupedByOrderId = new LinkedHashMap<>();
+        for (Payment payment : payments) {
+            Order order = payment.getOrder();
+            if (order == null) {
+                log.warn("Skipping payment {} because associated order is null", payment.getId());
+                continue;
+            }
+
+            groupedByOrderId.computeIfAbsent(order.getOrderId(), id -> new LinkedList<>())
+                    .add(payment);
+        }
+
+        List<OrderPaymentListResponse> summaries = new ArrayList<>(groupedByOrderId.size());
+        for (List<Payment> paymentGroup : groupedByOrderId.values()) {
+            Payment representative = paymentGroup.get(0);
+            Order order = Objects.requireNonNull(representative.getOrder(), "order must not be null");
+            summaries.add(OrderPaymentListResponse.from(order, paymentGroup));
+        }
+
+        int total = summaries.size();
+        int offset = calculateOffset(pageable, total);
+        int toIndex = Math.min(offset + pageable.getPageSize(), total);
+
+        List<OrderPaymentListResponse> pageContent = offset >= total
+                ? List.of()
+                : summaries.subList(offset, toIndex);
+
+        return new PageImpl<>(pageContent, pageable, total);
     }
 
     @Transactional(readOnly = true)
-    public PaymentDetailResponse getPaymentDetail(Long paymentId) {
+    public OrderPaymentDetailResponse getPaymentDetail(Long paymentId) {
         Payment payment = paymentRepository.findWithOrderById(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다."));
 
-        PaymentResponseDto paymentResponseDto = deserializePaymentRaw(payment.getRaw());
-        return PaymentDetailResponse.of(payment, paymentResponseDto);
+        Order order = payment.getOrder();
+        if (order == null) {
+            throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제에 연결된 주문을 찾을 수 없습니다.");
+        }
+
+        List<Payment> payments = paymentRepository.findByOrderOrderId(order.getOrderId());
+        if (payments.isEmpty()) {
+            payments = List.of(payment);
+        }
+
+        Map<Long, PaymentResponseDto> responseByPaymentId = new LinkedHashMap<>();
+        for (Payment each : payments) {
+            responseByPaymentId.put(each.getId(), deserializePaymentRaw(each.getRaw()));
+        }
+
+        List<PaymentResponseDto> paymentResponses = payments.stream()
+                .map(each -> responseByPaymentId.get(each.getId()))
+                .toList();
+
+        return OrderPaymentDetailResponse.from(order, payments, paymentResponses);
     }
 
     //내부 시스템에 반영 (save직전까지)
@@ -330,6 +379,24 @@ public class PaymentService {
 
     private OffsetDateTime startOfDay(LocalDate date) {
         return date.atStartOfDay(DEFAULT_ZONE).toOffsetDateTime();
+    }
+
+    private Sort resolveSort(Pageable pageable) {
+        if (pageable.getSort().isSorted()) {
+            return pageable.getSort();
+        }
+        return Sort.by(Sort.Direction.DESC, "approvedAt", "createdAt");
+    }
+
+    private int calculateOffset(Pageable pageable, int totalElements) {
+        long rawOffset = pageable.getOffset();
+        if (rawOffset >= totalElements) {
+            return totalElements;
+        }
+        if (rawOffset > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) rawOffset;
     }
 
     private record DateRange(OffsetDateTime from, OffsetDateTime to) {
