@@ -28,7 +28,6 @@ public record SplitPaymentDetailResponse(
 
         Integer amount = payment.getAmount();
         Integer vatAmount = amount != null ? Math.round(amount * 0.1f) : null;
-
         String method = payment.getMethod();
         String status = fallbackStatus;
         ZonedDateTime approvedAt = null;
@@ -43,15 +42,19 @@ public record SplitPaymentDetailResponse(
             if (paymentResponseDto.getMethod() != null) {
                 method = paymentResponseDto.getMethod();
             }
-            status = paymentResponseDto.getStatus();
+            if (paymentResponseDto.getStatus() != null) {
+                status = paymentResponseDto.getStatus();
+            }
             if (paymentResponseDto.getApprovedAt() != null) {
                 approvedAt = paymentResponseDto.getApprovedAt().atZoneSameInstant(DEFAULT_ZONE);
             }
+
             PaymentResponseDto.Card card = paymentResponseDto.getCard();
             if (card != null) {
                 approvalNumber = card.getApproveNo();
                 approvalStatus = card.getAcquireStatus();
             }
+
             if (approvalNumber == null) {
                 approvalNumber = paymentResponseDto.getPaymentKey();
             }

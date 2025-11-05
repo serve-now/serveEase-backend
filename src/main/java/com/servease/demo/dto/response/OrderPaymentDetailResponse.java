@@ -37,7 +37,6 @@ public record OrderPaymentDetailResponse(
         if (payments.isEmpty()) {
             throw new IllegalArgumentException("payments must not be empty");
         }
-
         if (payments.size() != paymentResponses.size()) {
             throw new IllegalArgumentException("payments size and paymentResponses size must match");
         }
