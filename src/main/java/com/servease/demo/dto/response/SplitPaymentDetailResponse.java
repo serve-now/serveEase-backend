@@ -1,6 +1,7 @@
 package com.servease.demo.dto.response;
 
 import com.servease.demo.dto.PaymentResponseDto;
+import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Payment;
 
 import java.time.ZoneId;
@@ -74,6 +75,31 @@ public record SplitPaymentDetailResponse(
                 approvedAt,
                 approvalNumber,
                 approvalStatus
+        );
+    }
+
+    public static SplitPaymentDetailResponse fromCash(CashPayment cashPayment, String fallbackStatus) {
+        Objects.requireNonNull(cashPayment, "cashPayment must not be null");
+
+        Integer amount = cashPayment.getAmount();
+        Integer vatAmount = amount != null ? Math.round(amount * 0.1f) : null;
+        ZonedDateTime approvedAt = null;
+        if (cashPayment.getReceivedAt() != null) {
+            approvedAt = cashPayment.getReceivedAt().atZoneSameInstant(DEFAULT_ZONE);
+        }
+
+        String approvalNumber = String.valueOf(cashPayment.getId());
+
+        return new SplitPaymentDetailResponse(
+                cashPayment.getId(),
+                approvalNumber,
+                amount,
+                vatAmount,
+                "CASH",
+                fallbackStatus,
+                approvedAt,
+                approvalNumber,
+                null
         );
     }
 }
