@@ -91,6 +91,7 @@ public class PaymentService {
         List<Payment> payments = paymentRepository.findAll(specification, sort);
 
         Map<String, List<Payment>> groupedByOrderId = new LinkedHashMap<>();
+        Set<String> orderedByPayment = new LinkedHashSet<>();
         for (Payment payment : payments) {
             Order order = payment.getOrder();
             if (order == null) {
@@ -100,13 +101,50 @@ public class PaymentService {
 
             groupedByOrderId.computeIfAbsent(order.getOrderId(), id -> new LinkedList<>())
                     .add(payment);
+            orderedByPayment.add(order.getOrderId());
         }
 
-        List<OrderPaymentListResponse> summaries = new ArrayList<>(groupedByOrderId.size());
-        for (List<Payment> paymentGroup : groupedByOrderId.values()) {
-            Payment representative = paymentGroup.get(0);
-            Order order = Objects.requireNonNull(representative.getOrder(), "order must not be null");
-            summaries.add(OrderPaymentListResponse.from(order, paymentGroup));
+        Map<String, List<CashPayment>> cashPaymentsByOrderId = new LinkedHashMap<>();
+        if (shouldIncludeCashPayments(searchRequest)) {
+            Specification<CashPayment> cashSpecification = buildCashSpecification(searchRequest);
+            Sort cashSort = Sort.by(Sort.Direction.DESC, "receivedAt", "id");
+            List<CashPayment> cashPayments = cashPaymentRepository.findAll(cashSpecification, cashSort);
+            for (CashPayment cashPayment : cashPayments) {
+                Order order = cashPayment.getOrder();
+                if (order == null) {
+                    log.warn("Skipping cash payment {} because associated order is null", cashPayment.getId());
+                    continue;
+                }
+                cashPaymentsByOrderId.computeIfAbsent(order.getOrderId(), id -> new LinkedList<>())
+                        .add(cashPayment);
+            }
+        }
+
+        LinkedHashSet<String> allOrderIds = new LinkedHashSet<>(orderedByPayment);
+        for (String cashOrderId : cashPaymentsByOrderId.keySet()) {
+            if (!allOrderIds.contains(cashOrderId)) {
+                allOrderIds.add(cashOrderId);
+            }
+        }
+
+        List<OrderPaymentListResponse> summaries = new ArrayList<>(allOrderIds.size());
+        for (String orderId : allOrderIds) {
+            List<Payment> paymentGroup = groupedByOrderId.getOrDefault(orderId, List.of());
+            List<CashPayment> cashGroup = cashPaymentsByOrderId.getOrDefault(orderId, List.of());
+
+            Order order = null;
+            if (!paymentGroup.isEmpty()) {
+                order = paymentGroup.get(0).getOrder();
+            } else if (!cashGroup.isEmpty()) {
+                order = cashGroup.get(0).getOrder();
+            }
+
+            if (order == null) {
+                log.warn("Skipping order {} because associated order is null in payment summary aggregation", orderId);
+                continue;
+            }
+
+            summaries.add(OrderPaymentListResponse.from(order, paymentGroup, cashGroup));
         }
 
         int total = summaries.size();
