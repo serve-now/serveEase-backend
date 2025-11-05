@@ -4,6 +4,7 @@ import com.servease.demo.dto.PaymentResponseDto;
 import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.enums.OrderStatus;
+import com.servease.demo.util.CardCompanyMapper;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -23,9 +24,9 @@ public record PaymentConfirmResponse(
 ) {
     public static PaymentConfirmResponse from(PaymentResponseDto dto, Order order) {
         PaymentResponseDto.Card card = dto.getCard();
-        String issuerCode = card != null ? card.getIssuerCode() : null;
+        String cardCompany = resolveCardCompany(card);
         String maskedNumber = card != null ? card.getNumber() : null;
-        String approvalNumber = card != null ? card.getApproveNo() : dto.getPaymentKey();
+        String approvalNumber = resolveApprovalNumber(dto, card);
 
         ZonedDateTime approvedAt = dto.getApprovedAt() != null
                 ? dto.getApprovedAt().atZoneSameInstant(ZoneId.of("Asia/Seoul"))
@@ -35,7 +36,7 @@ public record PaymentConfirmResponse(
                 dto.getOrderId(),
                 order.getOrderId(),
                 dto.getMethod(),
-                issuerCode,
+                cardCompany,
                 maskedNumber,
                 approvalNumber,
                 null,
@@ -64,5 +65,47 @@ public record PaymentConfirmResponse(
                 order.getRemainingAmount(),
                 order.getStatus()
         );
+    }
+
+    private static String resolveCardCompany(PaymentResponseDto.Card card) {
+        if (card == null) {
+            return null;
+        }
+        return CardCompanyMapper.map(card.getIssuerCode());
+    }
+
+    private static String resolveApprovalNumber(PaymentResponseDto dto, PaymentResponseDto.Card card) {
+        if (card != null) {
+            String candidate = sanitizeApprovalNumber(card.getApproveNo(), card.getIssuerCode());
+            if (candidate != null) {
+                return candidate;
+            }
+        }
+        String paymentKey = sanitizeApprovalNumber(dto.getPaymentKey(), null);
+        return paymentKey != null ? paymentKey : dto.getPaymentKey();
+    }
+
+    private static String sanitizeApprovalNumber(String candidate, String issuerCode) {
+        if (candidate == null) {
+            return null;
+        }
+
+        String trimmed = candidate.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+
+        if (trimmed.chars().allMatch(ch -> ch == '0')) {
+            return null;
+        }
+
+        if (issuerCode != null) {
+            String normalizedIssuer = issuerCode.trim();
+            if (!normalizedIssuer.isEmpty() && normalizedIssuer.equals(trimmed)) {
+                return null;
+            }
+        }
+
+        return trimmed;
     }
 }
