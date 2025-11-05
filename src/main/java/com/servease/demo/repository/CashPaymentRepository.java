@@ -4,8 +4,11 @@ import com.servease.demo.model.entity.CashPayment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface CashPaymentRepository extends JpaRepository<CashPayment, Long>, JpaSpecificationExecutor<CashPayment> {
     List<CashPayment> findByOrderOrderId(String orderId);
+
+    List<CashPayment> findByOrderOrderIdIn(Collection<String> orderIds);
 }
