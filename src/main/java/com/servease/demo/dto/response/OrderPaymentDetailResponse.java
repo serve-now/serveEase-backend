@@ -1,15 +1,16 @@
 package com.servease.demo.dto.response;
 
 import com.servease.demo.dto.PaymentResponseDto;
+import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 public record OrderPaymentDetailResponse(
         String orderId,
@@ -29,26 +30,24 @@ public record OrderPaymentDetailResponse(
 
     public static OrderPaymentDetailResponse from(Order order,
                                                   List<Payment> payments,
-                                                  List<PaymentResponseDto> paymentResponses) {
+                                                  List<PaymentResponseDto> paymentResponses,
+                                                  List<CashPayment> cashPayments) {
         Objects.requireNonNull(order, "order must not be null");
         Objects.requireNonNull(payments, "payments must not be null");
         Objects.requireNonNull(paymentResponses, "paymentResponses must not be null");
+        Objects.requireNonNull(cashPayments, "cashPayments must not be null");
 
-        if (payments.isEmpty()) {
-            throw new IllegalArgumentException("payments must not be empty");
-        }
         if (payments.size() != paymentResponses.size()) {
             throw new IllegalArgumentException("payments size and paymentResponses size must match");
         }
 
-        List<Payment> sortedPayments = payments.stream()
-                .sorted(Comparator.comparing(OrderPaymentDetailResponse::sortKey).reversed())
-                .toList();
+        if (payments.isEmpty() && cashPayments.isEmpty()) {
+            throw new IllegalArgumentException("payments or cashPayments must not be empty");
+        }
 
-        int totalPaymentAmount = sortedPayments.stream()
-                .map(Payment::getAmount)
-                .filter(Objects::nonNull)
-                .reduce(0, Integer::sum);
+        List<Payment> sortedPayments = payments.stream()
+                .sorted(Comparator.comparing((Payment p) -> sortKey(p)).reversed())
+                .toList();
 
         String orderStatus = order.getStatus() != null ? order.getStatus().name() : null;
 
@@ -57,9 +56,32 @@ public record OrderPaymentDetailResponse(
             responseByPaymentId.put(payments.get(i).getId(), paymentResponses.get(i));
         }
 
-        List<SplitPaymentDetailResponse> splitDetails = sortedPayments.stream()
-                .map(payment -> SplitPaymentDetailResponse.from(payment, responseByPaymentId.get(payment.getId()), orderStatus))
-                .collect(Collectors.toList());
+        List<SplitEntry> splitEntries = new ArrayList<>(payments.size() + cashPayments.size());
+
+        for (Payment payment : sortedPayments) {
+            SplitPaymentDetailResponse detail = SplitPaymentDetailResponse.from(
+                    payment,
+                    responseByPaymentId.get(payment.getId()),
+                    orderStatus
+            );
+            splitEntries.add(new SplitEntry(sortKey(payment), detail, payment.getAmount()));
+        }
+
+        for (CashPayment cashPayment : cashPayments) {
+            SplitPaymentDetailResponse detail = SplitPaymentDetailResponse.fromCash(cashPayment, orderStatus);
+            splitEntries.add(new SplitEntry(sortKey(cashPayment), detail, cashPayment.getAmount()));
+        }
+
+        splitEntries.sort(Comparator.comparing(SplitEntry::sortKey, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
+
+        List<SplitPaymentDetailResponse> splitDetails = splitEntries.stream()
+                .map(SplitEntry::detail)
+                .toList();
+
+        int totalPaymentAmount = splitEntries.stream()
+                .map(SplitEntry::amount)
+                .filter(Objects::nonNull)
+                .reduce(0, Integer::sum);
 
         SplitPaymentDetailResponse representative = splitDetails.get(0);
 
@@ -94,5 +116,19 @@ public record OrderPaymentDetailResponse(
             return payment.getApprovedAt().atZoneSameInstant(DEFAULT_ZONE);
         }
         return payment.getCreatedAt().atZoneSameInstant(DEFAULT_ZONE);
+    }
+
+    private static ZonedDateTime sortKey(CashPayment cashPayment) {
+        if (cashPayment.getReceivedAt() != null) {
+            return cashPayment.getReceivedAt().atZoneSameInstant(DEFAULT_ZONE);
+        }
+        return null;
+    }
+
+    private record SplitEntry(
+            ZonedDateTime sortKey,
+            SplitPaymentDetailResponse detail,
+            Integer amount
+    ) {
     }
 }
