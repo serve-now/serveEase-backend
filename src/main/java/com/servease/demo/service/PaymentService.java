@@ -112,6 +112,14 @@ public class PaymentService {
             summaries.add(OrderPaymentListResponse.from(order, paymentGroup));
         }
 
+        summaries.sort(
+                Comparator.comparing(
+                                OrderPaymentListResponse::representativeApprovedAt,
+                                Comparator.nullsLast(Comparator.naturalOrder())
+                        )
+                        .reversed()
+        );
+
         int total = summaries.size();
         int offset = calculateOffset(pageable, total);
         int toIndex = Math.min(offset + pageable.getPageSize(), total);
