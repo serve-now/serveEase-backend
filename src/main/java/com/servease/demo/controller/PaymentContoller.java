@@ -2,9 +2,9 @@ package com.servease.demo.controller;
 
 import com.servease.demo.dto.request.PaymentSearchRequest;
 import com.servease.demo.dto.request.TossConfirmRequest;
+import com.servease.demo.dto.response.OrderPaymentDetailResponse;
+import com.servease.demo.dto.response.OrderPaymentListResponse;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
-import com.servease.demo.dto.response.PaymentDetailResponse;
-import com.servease.demo.dto.response.PaymentListResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.enums.PaymentMethodFilter;
@@ -48,7 +48,7 @@ public class PaymentContoller {
     }
 
     @GetMapping
-    public ResponseEntity<Page<PaymentListResponse>> getPayments(
+    public Page<OrderPaymentListResponse> getPayments(
             @PageableDefault(sort = "approvedAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(value = "range", required = false) String range,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -64,12 +64,12 @@ public class PaymentContoller {
                 parseEnum(orderType, PaymentOrderTypeFilter.class, "orderType")
         );
 
-        return ResponseEntity.ok(paymentService.getPayments(pageable, searchRequest));
+        return paymentService.getPayments(pageable, searchRequest);
     }
 
     @GetMapping("/{paymentId}")
-    public ResponseEntity<PaymentDetailResponse> getPaymentDetails(@PathVariable Long paymentId) {
-        return ResponseEntity.ok(paymentService.getPaymentDetail(paymentId));
+    public OrderPaymentDetailResponse getPaymentDetails(@PathVariable Long paymentId) {
+        return paymentService.getPaymentDetail(paymentId);
     }
 
     private <E extends Enum<E>> E parseEnum(String value, Class<E> enumType, String parameterName) {
