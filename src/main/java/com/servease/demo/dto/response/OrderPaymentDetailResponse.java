@@ -2,7 +2,6 @@ package com.servease.demo.dto.response;
 
 import com.servease.demo.dto.PaymentResponseDto;
 import com.servease.demo.model.entity.Order;
-import com.servease.demo.model.entity.OrderItem;
 import com.servease.demo.model.entity.Payment;
 
 import java.time.ZoneId;
@@ -46,36 +45,28 @@ public record OrderPaymentDetailResponse(
                 .sorted(Comparator.comparing(OrderPaymentDetailResponse::sortKey).reversed())
                 .toList();
 
-        int totalAmount = sortedPayments.stream()
+        int totalPaymentAmount = sortedPayments.stream()
                 .map(Payment::getAmount)
                 .filter(Objects::nonNull)
                 .reduce(0, Integer::sum);
-
-        Payment representative = sortedPayments.get(0);
-        ZonedDateTime representativeApprovedAt = null;
-        if (representative.getApprovedAt() != null) {
-            representativeApprovedAt = representative.getApprovedAt().atZoneSameInstant(DEFAULT_ZONE);
-        }
 
         String orderStatus = order.getStatus() != null ? order.getStatus().name() : null;
 
         var responseByPaymentId = new java.util.HashMap<Long, PaymentResponseDto>();
         for (int i = 0; i < payments.size(); i++) {
-            Payment payment = payments.get(i);
-            responseByPaymentId.put(payment.getId(), paymentResponses.get(i));
+            responseByPaymentId.put(payments.get(i).getId(), paymentResponses.get(i));
         }
 
         List<SplitPaymentDetailResponse> splitDetails = sortedPayments.stream()
-                .map(payment -> {
-                    PaymentResponseDto responseDto = responseByPaymentId.get(payment.getId());
-                    return SplitPaymentDetailResponse.from(payment, responseDto, orderStatus);
-                })
+                .map(payment -> SplitPaymentDetailResponse.from(payment, responseByPaymentId.get(payment.getId()), orderStatus))
                 .collect(Collectors.toList());
 
-        List<OrderItemSummaryResponse> orderItemSummaries = order.getOrderItems() != null
+        SplitPaymentDetailResponse representative = splitDetails.get(0);
+
+        List<OrderItemSummaryResponse> orderItems = order.getOrderItems() != null
                 ? order.getOrderItems().stream()
                 .filter(Objects::nonNull)
-                .map(OrderPaymentDetailResponse::toSummary)
+                .map(OrderItemSummaryResponse::fromEntity)
                 .toList()
                 : List.of();
 
@@ -85,15 +76,15 @@ public record OrderPaymentDetailResponse(
 
         return new OrderPaymentDetailResponse(
                 order.getOrderId(),
-                totalAmount,
+                totalPaymentAmount,
                 splitDetails.size(),
-                representative.getMethod(),
-                orderStatus,
-                representativeApprovedAt,
+                representative.paymentMethod(),
+                representative.paymentStatus(),
+                representative.approvedAt(),
                 tableNumber,
                 orderStatus,
                 order.getRemainingAmount(),
-                orderItemSummaries,
+                orderItems,
                 splitDetails
         );
     }
@@ -103,9 +94,5 @@ public record OrderPaymentDetailResponse(
             return payment.getApprovedAt().atZoneSameInstant(DEFAULT_ZONE);
         }
         return payment.getCreatedAt().atZoneSameInstant(DEFAULT_ZONE);
-    }
-
-    private static OrderItemSummaryResponse toSummary(OrderItem orderItem) {
-        return OrderItemSummaryResponse.fromEntity(orderItem);
     }
 }

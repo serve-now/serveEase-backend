@@ -30,9 +30,9 @@ public record PaymentDetailResponse(
                                              Order order,
                                              PaymentResponseDto paymentResponseDto,
                                              List<OrderItemSummaryResponse> orderItemSummaries) {
-        Objects.requireNonNull(payment, "payment가 null 입니다.");
-        Objects.requireNonNull(order, "order가 null 입니다.");
-        Objects.requireNonNull(orderItemSummaries, "orderItemSummaries 가 null 입니다.");
+        Objects.requireNonNull(payment, "payment must not be null");
+        Objects.requireNonNull(order, "order must not be null");
+        Objects.requireNonNull(orderItemSummaries, "orderItemSummaries must not be null");
 
         Integer amount = payment.getAmount();
         Integer vatAmount = amount != null ? Math.round(amount * 0.1f) : null;
@@ -107,8 +107,8 @@ public record PaymentDetailResponse(
     }
 
     public static PaymentDetailResponse fromCashPayment(CashPayment cashPayment, Order order) {
-        Objects.requireNonNull(cashPayment, "cashPayment 가 null 입니다.");
-        Objects.requireNonNull(order, "order 가 null 입니다.");
+        Objects.requireNonNull(cashPayment, "cashPayment must not be null");
+        Objects.requireNonNull(order, "order must not be null");
 
         Integer amount = cashPayment.getAmount();
         Integer vatAmount = amount != null ? Math.round(amount * 0.1f) : null;
