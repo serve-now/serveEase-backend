@@ -21,10 +21,14 @@ public record SplitPaymentDetailResponse(
 
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Seoul");
 
-    public static SplitPaymentDetailResponse from(Payment payment, PaymentResponseDto paymentResponseDto, String fallbackStatus) {
+    public static SplitPaymentDetailResponse from(Payment payment,
+                                                  PaymentResponseDto paymentResponseDto,
+                                                  String fallbackStatus) {
         Objects.requireNonNull(payment, "payment must not be null");
 
-        Integer vatAmount = payment.getAmount() != null ? Math.round(payment.getAmount() * 0.1f) : null;
+        Integer amount = payment.getAmount();
+        Integer vatAmount = amount != null ? Math.round(amount * 0.1f) : null;
+
         String method = payment.getMethod();
         String status = fallbackStatus;
         ZonedDateTime approvedAt = null;
@@ -39,19 +43,15 @@ public record SplitPaymentDetailResponse(
             if (paymentResponseDto.getMethod() != null) {
                 method = paymentResponseDto.getMethod();
             }
-            if (paymentResponseDto.getStatus() != null) {
-                status = paymentResponseDto.getStatus();
-            }
+            status = paymentResponseDto.getStatus();
             if (paymentResponseDto.getApprovedAt() != null) {
                 approvedAt = paymentResponseDto.getApprovedAt().atZoneSameInstant(DEFAULT_ZONE);
             }
-
             PaymentResponseDto.Card card = paymentResponseDto.getCard();
             if (card != null) {
                 approvalNumber = card.getApproveNo();
                 approvalStatus = card.getAcquireStatus();
             }
-
             if (approvalNumber == null) {
                 approvalNumber = paymentResponseDto.getPaymentKey();
             }
@@ -64,7 +64,7 @@ public record SplitPaymentDetailResponse(
         return new SplitPaymentDetailResponse(
                 payment.getId(),
                 payment.getPaymentKey(),
-                payment.getAmount(),
+                amount,
                 vatAmount,
                 method,
                 status,
