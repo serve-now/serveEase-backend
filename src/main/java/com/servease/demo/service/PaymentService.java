@@ -30,6 +30,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import com.servease.demo.model.entity.User;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -159,20 +162,11 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
-    public OrderPaymentDetailResponse getPaymentDetail(Long paymentId) {
-        Payment payment = paymentRepository.findWithOrderById(paymentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다."));
+    public OrderPaymentDetailResponse getPaymentDetailByOrderId(String orderId) {
+        Order order = orderService.getOrderByOrderId(orderId);
+        validateOrderOwnership(order);
 
-        Order order = payment.getOrder();
-        if (order == null) {
-            throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제에 연결된 주문을 찾을 수 없습니다.");
-        }
-
-        List<Payment> payments = paymentRepository.findByOrderOrderId(order.getOrderId());
-        if (payments.isEmpty()) {
-            payments = List.of(payment);
-        }
-
+        List<Payment> payments = paymentRepository.findByOrderOrderId(orderId);
         Map<Long, PaymentResponseDto> responseByPaymentId = new LinkedHashMap<>();
         for (Payment each : payments) {
             responseByPaymentId.put(each.getId(), deserializePaymentRaw(each.getRaw()));
@@ -182,9 +176,38 @@ public class PaymentService {
                 .map(each -> responseByPaymentId.get(each.getId()))
                 .toList();
 
-        List<CashPayment> cashPayments = cashPaymentRepository.findByOrderOrderId(order.getOrderId());
+        List<CashPayment> cashPayments = cashPaymentRepository.findByOrderOrderId(orderId);
+
+        if (payments.isEmpty() && cashPayments.isEmpty()) {
+            throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다.");
+        }
 
         return OrderPaymentDetailResponse.from(order, payments, paymentResponses, cashPayments);
+    }
+
+    private void validateOrderOwnership(Order order) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "인증 정보가 필요합니다.");
+        }
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof User user)) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "인증 정보가 필요합니다.");
+        }
+
+        if (order == null) {
+            throw new BusinessException(ErrorCode.ORDER_NOT_FOUND);
+        }
+
+        var table = order.getRestaurantTable();
+        if (table == null || table.getStore() == null || table.getStore().getOwner() == null) {
+            throw new BusinessException(ErrorCode.STORE_NOT_FOUND, "주문에 연결된 가게 정보를 찾을 수 없습니다.");
+        }
+
+        Long ownerId = table.getStore().getOwner().getId();
+        if (!Objects.equals(ownerId, user.getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "다른 가게의 결제 내역에는 접근할 수 없습니다.");
+        }
     }
 
     //내부 시스템에 반영 (save직전까지)
