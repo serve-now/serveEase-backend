@@ -46,9 +46,8 @@ public record OrderPaymentDetailResponse(
         }
 
         List<Payment> sortedPayments = payments.stream()
-                .sorted(Comparator.comparing((Payment p) -> sortKey(p)).reversed())
+                .sorted(Comparator.comparing((Payment payment) -> sortKey(payment)).reversed())
                 .toList();
-
         String orderStatus = order.getStatus() != null ? order.getStatus().name() : null;
 
         var responseByPaymentId = new java.util.HashMap<Long, PaymentResponseDto>();
@@ -117,7 +116,6 @@ public record OrderPaymentDetailResponse(
         }
         return payment.getCreatedAt().atZoneSameInstant(DEFAULT_ZONE);
     }
-
     private static ZonedDateTime sortKey(CashPayment cashPayment) {
         if (cashPayment.getReceivedAt() != null) {
             return cashPayment.getReceivedAt().atZoneSameInstant(DEFAULT_ZONE);
