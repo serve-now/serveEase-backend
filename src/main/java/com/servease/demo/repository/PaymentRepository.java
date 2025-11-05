@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpecificationExecutor<Payment> {
@@ -17,4 +18,6 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
     Page<Payment> findAll(Pageable pageable);
 
     Optional<Payment> findWithOrderById(Long id);
+
+    List<Payment> findByOrderOrderId(String orderId);
 }
