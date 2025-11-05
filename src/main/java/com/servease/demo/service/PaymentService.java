@@ -144,7 +144,9 @@ public class PaymentService {
                 .map(each -> responseByPaymentId.get(each.getId()))
                 .toList();
 
-        return OrderPaymentDetailResponse.from(order, payments, paymentResponses);
+        List<CashPayment> cashPayments = cashPaymentRepository.findByOrderOrderId(order.getOrderId());
+
+        return OrderPaymentDetailResponse.from(order, payments, paymentResponses, cashPayments);
     }
 
     //내부 시스템에 반영 (save직전까지)
