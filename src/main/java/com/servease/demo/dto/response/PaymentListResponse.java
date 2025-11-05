@@ -1,5 +1,6 @@
 package com.servease.demo.dto.response;
 
+import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.OrderItem;
 import com.servease.demo.model.entity.Payment;
@@ -24,15 +25,6 @@ public record PaymentListResponse(
         Order order = Objects.requireNonNull(payment.getOrder(), "order가 null 입니다.");
         List<OrderItem> orderItems = order.getOrderItems() != null ? order.getOrderItems() : List.of();
 
-        String representativeItemName = null;
-        if (!orderItems.isEmpty() && orderItems.get(0) != null && orderItems.get(0).getMenu() != null) {
-            representativeItemName = orderItems.get(0).getMenu().getName();
-        }
-
-        int totalItemCount = orderItems.stream()
-                .mapToInt(orderItem -> orderItem != null ? orderItem.getQuantity() : 0)
-                .sum();
-
         return new PaymentListResponse(
                 payment.getId(),
                 order.getOrderId(),
@@ -40,8 +32,45 @@ public record PaymentListResponse(
                 payment.getApprovedAt(),
                 payment.getAmount(),
                 order.getStatus() != null ? order.getStatus().name() : null,
-                representativeItemName,
-                totalItemCount
+                resolveRepresentativeItemName(orderItems),
+                calculateTotalItemCount(orderItems)
         );
+    }
+
+    public static PaymentListResponse fromCashPayment(CashPayment cashPayment) {
+        Objects.requireNonNull(cashPayment, "cashPayment가 null 입니다.");
+
+        Order order = Objects.requireNonNull(cashPayment.getOrder(), "order가 null 입니다.");
+        List<OrderItem> orderItems = order.getOrderItems() != null ? order.getOrderItems() : List.of();
+
+        return new PaymentListResponse(
+                cashPayment.getId(),
+                order.getOrderId(),
+                "CASH",
+                cashPayment.getReceivedAt(),
+                cashPayment.getAmount(),
+                order.getStatus() != null ? order.getStatus().name() : null,
+                resolveRepresentativeItemName(orderItems),
+                calculateTotalItemCount(orderItems)
+        );
+    }
+
+    private static String resolveRepresentativeItemName(List<OrderItem> orderItems) {
+        if (orderItems.isEmpty()) {
+            return null;
+        }
+
+        OrderItem firstItem = orderItems.get(0);
+        if (firstItem == null || firstItem.getMenu() == null) {
+            return null;
+        }
+
+        return firstItem.getMenu().getName();
+    }
+
+    private static int calculateTotalItemCount(List<OrderItem> orderItems) {
+        return orderItems.stream()
+                .mapToInt(orderItem -> orderItem != null ? orderItem.getQuantity() : 0)
+                .sum();
     }
 }

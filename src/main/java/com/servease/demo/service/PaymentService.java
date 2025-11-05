@@ -11,12 +11,17 @@ import com.servease.demo.dto.response.PaymentConfirmResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.infra.TossPaymentClient;
+import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
+import com.servease.demo.model.enums.PaymentMethodFilter;
+import com.servease.demo.model.enums.PaymentOrderTypeFilter;
+import com.servease.demo.model.enums.PaymentQuickRange;
 import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.model.enums.PaymentMethodFilter;
 import com.servease.demo.model.enums.PaymentOrderTypeFilter;
 import com.servease.demo.model.enums.PaymentQuickRange;
+import com.servease.demo.repository.CashPaymentRepository;
 import com.servease.demo.repository.PaymentRepository;
 import com.servease.demo.service.event.OrderFullyPaidEvent;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +52,7 @@ public class PaymentService {
 
     private final TossPaymentClient tossPaymentClient;
     private final PaymentRepository paymentRepository;
+    private final CashPaymentRepository cashPaymentRepository;
     private final OrderService orderService;
     private final PlatformTransactionManager transactionManager;
     private final ApplicationEventPublisher eventPublisher;
@@ -140,6 +146,7 @@ public class PaymentService {
                 .toList();
 
         return OrderPaymentDetailResponse.from(order, payments, paymentResponses);
+
     }
 
     //내부 시스템에 반영 (save직전까지)
@@ -310,6 +317,62 @@ public class PaymentService {
         };
     }
 
+    private Specification<CashPayment> buildCashSpecification(PaymentSearchRequest searchRequest) {
+        Specification<CashPayment> specification = alwaysTrueCash();
+
+        if (searchRequest == null) {
+            return specification;
+        }
+
+        DateRange dateRange = calculateSearchDateRange(searchRequest);
+        if (dateRange != null) {
+            specification = specification.and(matchesCashDateBetween(dateRange));
+        }
+
+        if (searchRequest.orderType() != null) {
+            specification = specification.and(matchesCashOrderType(searchRequest.orderType()));
+        }
+
+        return specification;
+    }
+
+    private Specification<CashPayment> matchesCashDateBetween(DateRange dateRange) {
+        return (root, query, cb) -> {
+            var receivedAt = root.<OffsetDateTime>get("receivedAt");
+            return cb.and(
+                    cb.greaterThanOrEqualTo(receivedAt, dateRange.from()),
+                    cb.lessThan(receivedAt, dateRange.to())
+            );
+        };
+    }
+
+    private Specification<CashPayment> matchesCashOrderType(PaymentOrderTypeFilter orderTypeFilter) {
+        return (root, query, cb) -> {
+            var orderJoin = root.join("order");
+            var statusPath = orderJoin.get("status");
+            var paidTotalPath = root.get("paidTotalAfterPayment").as(Integer.class);
+            var amountPath = root.get("amount").as(Integer.class);
+
+            return switch (orderTypeFilter) {
+                case CANCELED -> cb.equal(statusPath, OrderStatus.CANCELED);
+                case PARTIAL -> cb.or(
+                        cb.equal(statusPath, OrderStatus.PARTIALLY_PAID),
+                        cb.and(
+                                cb.equal(statusPath, OrderStatus.COMPLETED),
+                                cb.greaterThan(paidTotalPath, amountPath)
+                        )
+                );
+                case NORMAL -> cb.and(
+                        cb.or(
+                                cb.isNull(statusPath),
+                                cb.notEqual(statusPath, OrderStatus.CANCELED)
+                        ),
+                        cb.lessThanOrEqualTo(paidTotalPath, amountPath)
+                );
+            };
+        };
+    }
+
     private Specification<Payment> matchesDateBetween(DateRange dateRange) {
         return (root, query, cb) -> {
             var approvedAtPath = root.<OffsetDateTime>get("approvedAt");
@@ -329,6 +392,92 @@ public class PaymentService {
 
             return cb.or(approvedPredicate, createdPredicate);
         };
+    }
+
+    private Specification<CashPayment> alwaysTrueCash() {
+        return (root, query, cb) -> cb.conjunction();
+    }
+
+    private Specification<CashPayment> alwaysFalseCash() {
+        return (root, query, cb) -> cb.disjunction();
+    }
+
+    private boolean shouldIncludeCashPayments(PaymentSearchRequest searchRequest) {
+        if (searchRequest == null || searchRequest.paymentMethod() == null) {
+            return true;
+        }
+
+        return searchRequest.paymentMethod().acceptedMethods().stream()
+                .anyMatch(method -> "CASH".equalsIgnoreCase(method));
+    }
+
+    private Comparator<PaymentListResponse> buildComparator(Sort sort) {
+        Comparator<PaymentListResponse> comparator = null;
+
+        if (sort != null && sort.isSorted()) {
+            for (Sort.Order order : sort) {
+                Comparator<PaymentListResponse> propertyComparator = comparatorForOrder(order);
+                if (propertyComparator != null) {
+                    comparator = comparator == null ? propertyComparator : comparator.thenComparing(propertyComparator);
+                }
+            }
+        }
+
+        if (comparator == null) {
+            comparator = defaultComparator();
+        }
+
+        return comparator;
+    }
+
+    private Comparator<PaymentListResponse> defaultComparator() {
+        Comparator<PaymentListResponse> primary = comparing(
+                PaymentListResponse::approvedAt,
+                Comparator.naturalOrder(),
+                true
+        );
+
+        Comparator<PaymentListResponse> secondary = comparing(
+                PaymentListResponse::paymentId,
+                Comparator.naturalOrder(),
+                true
+        );
+
+        return primary.thenComparing(secondary);
+    }
+
+    private Comparator<PaymentListResponse> comparatorForOrder(Sort.Order order) {
+        String property = order.getProperty();
+        boolean descending = order.isDescending();
+
+        return switch (property) {
+            case "paymentId" -> comparing(PaymentListResponse::paymentId, Comparator.naturalOrder(), descending);
+            case "orderId" -> comparing(PaymentListResponse::orderId, String.CASE_INSENSITIVE_ORDER, descending);
+            case "paymentMethod" -> comparing(PaymentListResponse::paymentMethod, String.CASE_INSENSITIVE_ORDER, descending);
+            case "approvedAt" -> comparing(PaymentListResponse::approvedAt, Comparator.naturalOrder(), descending);
+            case "totalPaymentAmount" -> comparing(PaymentListResponse::totalPaymentAmount, Comparator.naturalOrder(), descending);
+            case "paymentStatus" -> comparing(PaymentListResponse::paymentStatus, String.CASE_INSENSITIVE_ORDER, descending);
+            case "representativeItemName" -> comparing(PaymentListResponse::representativeItemName, String.CASE_INSENSITIVE_ORDER, descending);
+            case "totalItemCount" -> comparing(PaymentListResponse::totalItemCount, Comparator.naturalOrder(), descending);
+            default -> null;
+        };
+    }
+
+    private <T> Comparator<PaymentListResponse> comparing(
+            Function<PaymentListResponse, T> extractor,
+            Comparator<T> valueComparator,
+            boolean descending
+    ) {
+        Comparator<PaymentListResponse> comparator = Comparator.comparing(
+                extractor,
+                Comparator.nullsLast(valueComparator)
+        );
+
+        if (descending) {
+            return (left, right) -> comparator.compare(right, left);
+        }
+
+        return comparator;
     }
 
     private DateRange calculateSearchDateRange(PaymentSearchRequest searchRequest) {
