@@ -8,15 +8,13 @@ import com.servease.demo.dto.request.TossConfirmRequest;
 import com.servease.demo.dto.response.OrderPaymentDetailResponse;
 import com.servease.demo.dto.response.OrderPaymentListResponse;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
+import com.servease.demo.dto.response.PaymentListResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.infra.TossPaymentClient;
 import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
-import com.servease.demo.model.enums.PaymentMethodFilter;
-import com.servease.demo.model.enums.PaymentOrderTypeFilter;
-import com.servease.demo.model.enums.PaymentQuickRange;
 import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.model.enums.PaymentMethodFilter;
 import com.servease.demo.model.enums.PaymentOrderTypeFilter;
@@ -43,6 +41,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -146,7 +145,6 @@ public class PaymentService {
                 .toList();
 
         return OrderPaymentDetailResponse.from(order, payments, paymentResponses);
-
     }
 
     //내부 시스템에 반영 (save직전까지)

@@ -21,10 +21,13 @@ public record SplitPaymentDetailResponse(
 
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Seoul");
 
-    public static SplitPaymentDetailResponse from(Payment payment, PaymentResponseDto paymentResponseDto, String fallbackStatus) {
+    public static SplitPaymentDetailResponse from(Payment payment,
+                                                  PaymentResponseDto paymentResponseDto,
+                                                  String fallbackStatus) {
         Objects.requireNonNull(payment, "payment must not be null");
 
-        Integer vatAmount = payment.getAmount() != null ? Math.round(payment.getAmount() * 0.1f) : null;
+        Integer amount = payment.getAmount();
+        Integer vatAmount = amount != null ? Math.round(amount * 0.1f) : null;
         String method = payment.getMethod();
         String status = fallbackStatus;
         ZonedDateTime approvedAt = null;
@@ -64,7 +67,7 @@ public record SplitPaymentDetailResponse(
         return new SplitPaymentDetailResponse(
                 payment.getId(),
                 payment.getPaymentKey(),
-                payment.getAmount(),
+                amount,
                 vatAmount,
                 method,
                 status,

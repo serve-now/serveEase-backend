@@ -19,10 +19,11 @@ public record PaymentListResponse(
         String representativeItemName,
         Integer totalItemCount
 ) {
-    public static PaymentListResponse from(Payment payment) {
-        Objects.requireNonNull(payment, "payment가 null 입니다.");
 
-        Order order = Objects.requireNonNull(payment.getOrder(), "order가 null 입니다.");
+    public static PaymentListResponse from(Payment payment) {
+        Objects.requireNonNull(payment, "payment must not be null");
+
+        Order order = Objects.requireNonNull(payment.getOrder(), "order must not be null");
         List<OrderItem> orderItems = order.getOrderItems() != null ? order.getOrderItems() : List.of();
 
         return new PaymentListResponse(
@@ -38,9 +39,9 @@ public record PaymentListResponse(
     }
 
     public static PaymentListResponse fromCashPayment(CashPayment cashPayment) {
-        Objects.requireNonNull(cashPayment, "cashPayment가 null 입니다.");
+        Objects.requireNonNull(cashPayment, "cashPayment must not be null");
 
-        Order order = Objects.requireNonNull(cashPayment.getOrder(), "order가 null 입니다.");
+        Order order = Objects.requireNonNull(cashPayment.getOrder(), "order must not be null");
         List<OrderItem> orderItems = order.getOrderItems() != null ? order.getOrderItems() : List.of();
 
         return new PaymentListResponse(
