@@ -1,10 +1,12 @@
 package com.servease.demo.dto.response;
 
+import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.OrderItem;
 import com.servease.demo.model.entity.Payment;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -20,24 +22,33 @@ public record OrderPaymentListResponse(
         Integer totalItemCount
 ) {
 
-    public static OrderPaymentListResponse from(Order order, List<Payment> payments) {
+    public static OrderPaymentListResponse from(Order order, List<Payment> payments, List<CashPayment> cashPayments) {
         Objects.requireNonNull(order, "order must not be null");
         Objects.requireNonNull(payments, "payments must not be null");
+        Objects.requireNonNull(cashPayments, "cashPayments must not be null");
 
-        if (payments.isEmpty()) {
-            throw new IllegalArgumentException("payments must not be empty");
+        if (payments.isEmpty() && cashPayments.isEmpty()) {
+            throw new IllegalArgumentException("payments or cashPayments must not be empty");
         }
 
-        List<Payment> sortedPayments = payments.stream()
-                .sorted(Comparator.comparing(OrderPaymentListResponse::sortKey).reversed())
-                .toList();
+        List<Entry> entries = new ArrayList<>(payments.size() + cashPayments.size());
 
-        int totalAmount = sortedPayments.stream()
-                .map(Payment::getAmount)
+        for (Payment payment : payments) {
+            entries.add(Entry.from(payment));
+        }
+
+        for (CashPayment cashPayment : cashPayments) {
+            entries.add(Entry.from(cashPayment));
+        }
+
+        entries.sort(Comparator.comparing(Entry::sortKey, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
+
+        int totalAmount = entries.stream()
+                .map(Entry::amount)
                 .filter(Objects::nonNull)
                 .reduce(0, Integer::sum);
 
-        Payment representative = sortedPayments.get(0);
+        Entry representative = entries.get(0);
 
         String representativeItemName = order.getOrderItems() != null && !order.getOrderItems().isEmpty()
                 ? extractItemName(order.getOrderItems().get(0))
@@ -53,20 +64,13 @@ public record OrderPaymentListResponse(
         return new OrderPaymentListResponse(
                 order.getOrderId(),
                 totalAmount,
-                sortedPayments.size(),
-                representative.getMethod(),
+                entries.size(),
+                representative.method(),
                 order.getStatus() != null ? order.getStatus().name() : null,
-                representative.getApprovedAt(),
+                representative.approvedAt(),
                 representativeItemName,
                 totalItemCount
         );
-    }
-
-    private static OffsetDateTime sortKey(Payment payment) {
-        if (payment.getApprovedAt() != null) {
-            return payment.getApprovedAt();
-        }
-        return payment.getCreatedAt();
     }
 
     private static String extractItemName(OrderItem orderItem) {
@@ -74,5 +78,42 @@ public record OrderPaymentListResponse(
             return null;
         }
         return orderItem.getMenu().getName();
+    }
+
+    private record Entry(
+            OffsetDateTime sortKey,
+            Integer amount,
+            String method,
+            OffsetDateTime approvedAt
+    ) {
+
+        private static Entry from(Payment payment) {
+            Objects.requireNonNull(payment, "payment must not be null");
+
+            OffsetDateTime sortKey = payment.getApprovedAt();
+            if (sortKey == null) {
+                sortKey = payment.getCreatedAt();
+            }
+
+            return new Entry(
+                    sortKey,
+                    payment.getAmount(),
+                    payment.getMethod(),
+                    payment.getApprovedAt()
+            );
+        }
+
+        private static Entry from(CashPayment cashPayment) {
+            Objects.requireNonNull(cashPayment, "cashPayment must not be null");
+
+            OffsetDateTime receivedAt = cashPayment.getReceivedAt();
+
+            return new Entry(
+                    receivedAt,
+                    cashPayment.getAmount(),
+                    "CASH",
+                    receivedAt
+            );
+        }
     }
 }
