@@ -84,7 +84,7 @@ public class Order {
     }
 
     public void removeItemById(Long orderItemId){
-        if (this.status == OrderStatus.COMPLETED || this.status == OrderStatus.CANCELED) {
+        if (this.status == OrderStatus.COMPLETED || this.status == OrderStatus.CANCELED || this.status == OrderStatus.REFUNDED) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot remove items from a completed or canceled order.");
         }
 
@@ -104,6 +104,9 @@ public class Order {
         }
         if (this.isPaid) {
             throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID, "이미 결제가 완료된 주문입니다.");
+        }
+        if (this.status == OrderStatus.REFUNDED) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "환불된 주문에는 결제를 진행할 수 없습니다.");
         }
         int newPaidAmount = this.paidAmount + paymentAmount;
         if (newPaidAmount > this.totalPrice) {
@@ -153,6 +156,17 @@ public class Order {
                 this.status = OrderStatus.PARTIALLY_PAID;
             }
             this.paidAt = null;
+        }
+    }
+
+    public void revertFullPayment() {
+        this.paidAmount = 0;
+        this.remainingAmount = this.totalPrice;
+        this.isPaid = false;
+        this.paidAt = null;
+
+        if (this.status != OrderStatus.CANCELED) {
+            this.status = OrderStatus.REFUNDED;
         }
     }
 }
