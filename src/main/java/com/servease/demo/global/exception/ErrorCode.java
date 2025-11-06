@@ -47,6 +47,8 @@ public enum ErrorCode {
     PAYMENT_AMOUNT_EXCEEDS_REMAINING(HttpStatus.CONFLICT, "E028", "결제 금액이 남은 금액을 초과했습니다."),
     PAID_AMOUNT_EXCEEDS_TOTAL(HttpStatus.CONFLICT, "E029", "누적 결제 금액이 총 주문 금액을 초과했습니다."),
     CANCEL_AMOUNT_EXCEEDS_PAID(HttpStatus.CONFLICT, "E033", "취소 금액이 결제 금액을 초과했습니다."),
+    PAYMENT_ALREADY_CANCELED(HttpStatus.CONFLICT, "E034", "이미 취소된 결제입니다."),
+    CANCEL_AMOUNT_NOT_MATCH(HttpStatus.CONFLICT, "E035", "취소 금액이 결제 금액과 일치하지 않습니다."),
 
 
     // 500 Internal Server Error
