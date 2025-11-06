@@ -50,7 +50,8 @@ public enum ErrorCode {
 
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E999", "서버 내부 오류가 발생했습니다."),
-    TOSS_PAYMENT_CONFIRM_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E022", "토스 페이먼츠 결제 승인에 실패했습니다.");
+    TOSS_PAYMENT_CONFIRM_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E022", "토스 페이먼츠 결제 승인에 실패했습니다."),
+    TOSS_PAYMENT_CANCEL_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E032", "토스 페이먼츠 결제 취소에 실패했습니다.");
 
 
     private final HttpStatus status;
