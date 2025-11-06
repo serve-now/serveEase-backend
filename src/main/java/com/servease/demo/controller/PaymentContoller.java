@@ -1,9 +1,11 @@
 package com.servease.demo.controller;
 
+import com.servease.demo.dto.request.PaymentCancelRequest;
 import com.servease.demo.dto.request.PaymentSearchRequest;
 import com.servease.demo.dto.request.TossConfirmRequest;
 import com.servease.demo.dto.response.OrderPaymentDetailResponse;
 import com.servease.demo.dto.response.OrderPaymentListResponse;
+import com.servease.demo.dto.response.PaymentCancelResponse;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
@@ -19,7 +21,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,11 +41,20 @@ public class PaymentContoller {
     private final PaymentService paymentService;
 
     @PostMapping("/confirm")
-    public ResponseEntity<PaymentConfirmResponse> confirm(@Valid @RequestBody TossConfirmRequest tossConfirmRequest) {
+    public PaymentConfirmResponse confirm(@Valid @RequestBody TossConfirmRequest tossConfirmRequest) {
         log.info("[PAYMENT] confirm request orderId={}, paymentKey={}", tossConfirmRequest.orderId(), tossConfirmRequest.paymentKey());
         PaymentConfirmResponse response = paymentService.confirmAndSave(tossConfirmRequest);
         log.info("[PAYMENT] confirm success orderId={}, remainingAmount={}", tossConfirmRequest.orderId(), response.remainingAmount());
-        return ResponseEntity.ok(response);
+        return response;
+    }
+
+    @PostMapping("/cancel")
+    public PaymentCancelResponse cancel(@Valid @RequestBody PaymentCancelRequest paymentCancelRequest) {
+        log.info("[PAYMENT] cancel request paymentKey={}, cancelAmount={}", paymentCancelRequest.paymentKey(), paymentCancelRequest.cancelAmount());
+        PaymentCancelResponse response = paymentService.cancel(paymentCancelRequest);
+        log.info("[PAYMENT] cancel success paymentKey={}, canceledAmount={}, remainingAmount={}",
+                response.paymentKey(), response.canceledAmount(), response.remainingAmount());
+        return response;
     }
 
     @GetMapping
