@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -22,6 +23,7 @@ public class TossCancelResponse {
     private String currency;
     private Integer totalAmount;
     private EasyPay easyPay;
+    private List<CancelHistory> cancels;
 
     @Getter
     @Setter
@@ -30,5 +32,16 @@ public class TossCancelResponse {
         private String provider;
         private Integer amount;
         private Integer discountAmount;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class CancelHistory {
+        private String transactionKey;
+        private String cancelReason;
+        private Integer cancelAmount;
+        private OffsetDateTime canceledAt;
+        private String cancelStatus;
     }
 }
