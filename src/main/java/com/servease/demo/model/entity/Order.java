@@ -133,6 +133,46 @@ public class Order {
         return false;
     }
 
+    public void refundPayment(Integer refundAmount) {
+        if (refundAmount == null || refundAmount <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "환불 금액은 0보다 커야 합니다.");
+        }
+        if (this.paidAmount == null || refundAmount > this.paidAmount) {
+            throw new BusinessException(ErrorCode.CANCEL_AMOUNT_EXCEEDS_PAID, "환불 금액이 결제 금액을 초과했습니다.");
+        }
+
+        int updatedPaidAmount = this.paidAmount - refundAmount;
+        if (updatedPaidAmount < 0) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "환불 처리 중 결제 금액 계산이 잘못되었습니다.");
+        }
+
+        this.paidAmount = updatedPaidAmount;
+        this.remainingAmount = Math.max(0, this.totalPrice - this.paidAmount);
+
+        if (this.paidAmount == 0) {
+            this.isPaid = false;
+            this.paidAt = null;
+            if (this.status != OrderStatus.CANCELED) {
+                this.status = OrderStatus.REFUNDED;
+            }
+            return;
+        }
+
+        if (this.paidAmount < this.totalPrice) {
+            this.isPaid = false;
+            this.paidAt = null;
+            if (this.status != OrderStatus.CANCELED) {
+                this.status = OrderStatus.PARTIALLY_PAID;
+            }
+            return;
+        }
+
+        this.isPaid = true;
+        if (this.status != OrderStatus.CANCELED) {
+            this.status = OrderStatus.COMPLETED;
+        }
+    }
+
     public void syncPaymentAmountsWithTotal() {
         if (this.paidAmount == null) {
             this.paidAmount = 0;
