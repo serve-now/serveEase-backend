@@ -7,6 +7,7 @@ import com.servease.demo.model.enums.PaymentQuickRange;
 import java.time.LocalDate;
 
 public record PaymentSearchRequest(
+        Long storeId,
         PaymentQuickRange quickRange,
         LocalDate from,
         LocalDate to,
@@ -14,4 +15,3 @@ public record PaymentSearchRequest(
         PaymentOrderTypeFilter orderType
 ) {
 }
-

@@ -30,6 +30,7 @@ import com.servease.demo.repository.PaymentRepository;
 import com.servease.demo.service.event.OrderFullyPaidEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.persistence.criteria.JoinType;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -92,12 +93,11 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<OrderPaymentListResponse> getPayments(Pageable pageable) {
-        return getPayments(pageable, null);
-    }
-
-    @Transactional(readOnly = true)
     public Page<OrderPaymentListResponse> getPayments(Pageable pageable, PaymentSearchRequest searchRequest) {
+        if (searchRequest == null || searchRequest.storeId() == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "storeId가 필요합니다.");
+        }
+
         Specification<Payment> specification = buildSpecification(searchRequest);
         Sort sort = resolveSort(pageable);
 
@@ -408,6 +408,10 @@ public class PaymentService {
             return specification;
         }
 
+        if (searchRequest.storeId() != null) {
+            specification = specification.and(matchesStore(searchRequest.storeId()));
+        }
+
         DateRange dateRange = calculateSearchDateRange(searchRequest);
         if (dateRange != null) {
             specification = specification.and(matchesDateBetween(dateRange));
@@ -469,11 +473,24 @@ public class PaymentService {
         };
     }
 
+    private Specification<Payment> matchesStore(Long storeId) {
+        return (root, query, cb) -> {
+            var orderJoin = root.join("order");
+            var tableJoin = orderJoin.join("restaurantTable", JoinType.LEFT);
+            var storeJoin = tableJoin.join("store", JoinType.LEFT);
+            return cb.equal(storeJoin.get("id"), storeId);
+        };
+    }
+
     private Specification<CashPayment> buildCashSpecification(PaymentSearchRequest searchRequest) {
         Specification<CashPayment> specification = alwaysTrueCash();
 
         if (searchRequest == null) {
             return specification;
+        }
+
+        if (searchRequest.storeId() != null) {
+            specification = specification.and(matchesCashStore(searchRequest.storeId()));
         }
 
         DateRange dateRange = calculateSearchDateRange(searchRequest);
@@ -522,6 +539,15 @@ public class PaymentService {
                         cb.lessThanOrEqualTo(paidTotalPath, amountPath)
                 );
             };
+        };
+    }
+
+    private Specification<CashPayment> matchesCashStore(Long storeId) {
+        return (root, query, cb) -> {
+            var orderJoin = root.join("order");
+            var tableJoin = orderJoin.join("restaurantTable", JoinType.LEFT);
+            var storeJoin = tableJoin.join("store", JoinType.LEFT);
+            return cb.equal(storeJoin.get("id"), storeId);
         };
     }
 

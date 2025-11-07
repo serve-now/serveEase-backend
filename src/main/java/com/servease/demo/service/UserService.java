@@ -33,8 +33,16 @@ public class UserService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String loginId) throws UsernameNotFoundException { //loadUserByUsername : UserDetailsService의 SpringSecurity 인터페이스로 부터 옴
-        return userRepository.findByLoginId(loginId)
-                .orElseThrow(()-> new UsernameNotFoundException(("User not found with loginID: " + loginId)));
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new UsernameNotFoundException(("User not found with loginID: " + loginId)));
+
+        Long storeId = user.getStores().stream()
+                .findFirst()
+                .map(Store::getId)
+                .orElse(null);
+        user.setCurrentStoreId(storeId);
+
+        return user;
 
     }
 
