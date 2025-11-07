@@ -3,27 +3,34 @@ package com.servease.demo.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.servease.demo.dto.PaymentResponseDto;
+import com.servease.demo.dto.request.PaymentCancelRequest;
 import com.servease.demo.dto.request.PaymentSearchRequest;
 import com.servease.demo.dto.request.TossConfirmRequest;
 import com.servease.demo.dto.response.OrderPaymentDetailResponse;
 import com.servease.demo.dto.response.OrderPaymentListResponse;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
+import com.servease.demo.dto.response.PaymentCancelResponse;
 import com.servease.demo.dto.response.PaymentListResponse;
+import com.servease.demo.dto.request.TossCancelRequest;
+import com.servease.demo.dto.response.TossCancelResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.infra.TossPaymentClient;
 import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
+import com.servease.demo.model.entity.PaymentCancellation;
 import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.model.enums.PaymentMethodFilter;
 import com.servease.demo.model.enums.PaymentOrderTypeFilter;
 import com.servease.demo.model.enums.PaymentQuickRange;
 import com.servease.demo.repository.CashPaymentRepository;
+import com.servease.demo.repository.PaymentCancellationRepository;
 import com.servease.demo.repository.PaymentRepository;
 import com.servease.demo.service.event.OrderFullyPaidEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.persistence.criteria.JoinType;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -55,6 +62,7 @@ public class PaymentService {
     private final TossPaymentClient tossPaymentClient;
     private final PaymentRepository paymentRepository;
     private final CashPaymentRepository cashPaymentRepository;
+    private final PaymentCancellationRepository paymentCancellationRepository;
     private final OrderService orderService;
     private final PlatformTransactionManager transactionManager;
     private final ApplicationEventPublisher eventPublisher;
@@ -81,13 +89,18 @@ public class PaymentService {
         return paymentConfirmResponse;
     }
 
-    @Transactional(readOnly = true)
-    public Page<OrderPaymentListResponse> getPayments(Pageable pageable) {
-        return getPayments(pageable, null);
+    public PaymentCancelResponse cancel(PaymentCancelRequest request) {
+        Payment payment = preValidateCancel(request);
+        TossCancelContext cancelContext = requestTossCancel(payment.getPaymentKey(), request.cancelAmount());
+        return processAfterCancel(payment.getPaymentKey(), cancelContext);
     }
 
     @Transactional(readOnly = true)
     public Page<OrderPaymentListResponse> getPayments(Pageable pageable, PaymentSearchRequest searchRequest) {
+        if (searchRequest == null || searchRequest.storeId() == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "storeId가 필요합니다.");
+        }
+
         Specification<Payment> specification = buildSpecification(searchRequest);
         Sort sort = resolveSort(pageable);
 
@@ -315,6 +328,107 @@ public class PaymentService {
         }
     }
 
+    private String serializeCancelResponse(TossCancelResponse response) {
+        try {
+            return objectMapper.writeValueAsString(response);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize toss cancel response", e);
+            return response.toString();
+        }
+    }
+
+    private Payment preValidateCancel(PaymentCancelRequest request) {
+        Payment payment = paymentRepository.findByPaymentKey(request.paymentKey())
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "취소할 결제 정보를 찾을 수 없습니다."));
+
+        if (paymentCancellationRepository.existsByPaymentId(payment.getId())) {
+            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_CANCELED, "해당 결제는 이미 취소되었습니다.");
+        }
+
+        if (!Objects.equals(payment.getAmount(), request.cancelAmount())) {
+            throw new BusinessException(
+                    ErrorCode.CANCEL_AMOUNT_NOT_MATCH,
+                    String.format("요청한 취소 금액(%d)이 결제 금액(%d)과 일치하지 않습니다.",
+                            request.cancelAmount(), payment.getAmount()));
+        }
+
+        return payment;
+    }
+
+    private TossCancelContext requestTossCancel(String paymentKey, Integer cancelAmount) {
+        TossCancelRequest tossCancelRequest = new TossCancelRequest(cancelAmount);
+        TossCancelResponse response = tossPaymentClient.cancel(paymentKey, tossCancelRequest);
+
+        TossCancelResponse.CancelHistory latest = extractLatestCancelHistory(response);
+        OffsetDateTime canceledAt = latest != null && latest.getCanceledAt() != null
+                ? latest.getCanceledAt()
+                : OffsetDateTime.now();
+        String cancelReason = latest != null && latest.getCancelReason() != null && !latest.getCancelReason().isBlank()
+                ? latest.getCancelReason()
+                : tossCancelRequest.cancelReason();
+
+        return new TossCancelContext(response, canceledAt, cancelReason);
+    }
+
+    private PaymentCancelResponse processAfterCancel(String paymentKey, TossCancelContext context) {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        PaymentCancelResponse response = transactionTemplate.execute(status -> {
+            Payment paymentForUpdate = paymentRepository.findByPaymentKey(paymentKey)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "취소할 결제 정보를 찾을 수 없습니다."));
+
+            if (paymentCancellationRepository.existsByPaymentId(paymentForUpdate.getId())) {
+                throw new BusinessException(ErrorCode.PAYMENT_ALREADY_CANCELED, "해당 결제는 이미 취소되었습니다.");
+            }
+
+            Order order = orderService.getOrderByIdWithLock(paymentForUpdate.getOrder().getId());
+
+            if (!Objects.equals(order.getPaidAmount(), paymentForUpdate.getAmount())) {
+                throw new BusinessException(
+                        ErrorCode.CANCEL_AMOUNT_NOT_MATCH,
+                        String.format("주문의 결제 금액(%d)과 취소 대상 금액(%d)이 일치하지 않습니다.",
+                                order.getPaidAmount(), paymentForUpdate.getAmount()));
+            }
+
+            order.revertFullPayment();
+
+            PaymentCancellation cancellation = PaymentCancellation.of(
+                    paymentForUpdate,
+                    paymentForUpdate.getAmount(),
+                    context.cancelReason(),
+                    context.canceledAt(),
+                    serializeCancelResponse(context.response())
+            );
+            paymentCancellationRepository.save(cancellation);
+
+            return PaymentCancelResponse.from(
+                    paymentForUpdate,
+                    order,
+                    paymentForUpdate.getAmount(),
+                    context.cancelReason(),
+                    context.canceledAt()
+            );
+        });
+
+        if (response == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 취소 처리에 실패했습니다.");
+        }
+
+        return response;
+    }
+
+    private record TossCancelContext(
+            TossCancelResponse response,
+            OffsetDateTime canceledAt,
+            String cancelReason
+    ) {}
+
+    private TossCancelResponse.CancelHistory extractLatestCancelHistory(TossCancelResponse response) {
+        if (response.getCancels() == null || response.getCancels().isEmpty()) {
+            return null;
+        }
+        return response.getCancels().get(response.getCancels().size() - 1);
+    }
+
 
     //동적 쿼리 조합 Specification 이용하여 where 절을 객체로 표현
     //Specification을 조립하는 buildSpecification 과 matchesMethod 로 실행
@@ -323,6 +437,10 @@ public class PaymentService {
 
         if (searchRequest == null) {
             return specification;
+        }
+
+        if (searchRequest.storeId() != null) {
+            specification = specification.and(matchesStore(searchRequest.storeId()));
         }
 
         DateRange dateRange = calculateSearchDateRange(searchRequest);
@@ -386,11 +504,24 @@ public class PaymentService {
         };
     }
 
+    private Specification<Payment> matchesStore(Long storeId) {
+        return (root, query, cb) -> {
+            var orderJoin = root.join("order");
+            var tableJoin = orderJoin.join("restaurantTable", JoinType.LEFT);
+            var storeJoin = tableJoin.join("store", JoinType.LEFT);
+            return cb.equal(storeJoin.get("id"), storeId);
+        };
+    }
+
     private Specification<CashPayment> buildCashSpecification(PaymentSearchRequest searchRequest) {
         Specification<CashPayment> specification = alwaysTrueCash();
 
         if (searchRequest == null) {
             return specification;
+        }
+
+        if (searchRequest.storeId() != null) {
+            specification = specification.and(matchesCashStore(searchRequest.storeId()));
         }
 
         DateRange dateRange = calculateSearchDateRange(searchRequest);
@@ -439,6 +570,15 @@ public class PaymentService {
                         cb.lessThanOrEqualTo(paidTotalPath, amountPath)
                 );
             };
+        };
+    }
+
+    private Specification<CashPayment> matchesCashStore(Long storeId) {
+        return (root, query, cb) -> {
+            var orderJoin = root.join("order");
+            var tableJoin = orderJoin.join("restaurantTable", JoinType.LEFT);
+            var storeJoin = tableJoin.join("store", JoinType.LEFT);
+            return cb.equal(storeJoin.get("id"), storeId);
         };
     }
 

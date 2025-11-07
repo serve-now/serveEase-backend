@@ -1,12 +1,15 @@
 package com.servease.demo.controller;
 
+import com.servease.demo.dto.request.PaymentCancelRequest;
 import com.servease.demo.dto.request.PaymentSearchRequest;
 import com.servease.demo.dto.request.TossConfirmRequest;
 import com.servease.demo.dto.response.OrderPaymentDetailResponse;
 import com.servease.demo.dto.response.OrderPaymentListResponse;
+import com.servease.demo.dto.response.PaymentCancelResponse;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
 import com.servease.demo.global.exception.BusinessException;
 import com.servease.demo.global.exception.ErrorCode;
+import com.servease.demo.model.entity.User;
 import com.servease.demo.model.enums.PaymentMethodFilter;
 import com.servease.demo.model.enums.PaymentOrderTypeFilter;
 import com.servease.demo.model.enums.PaymentQuickRange;
@@ -19,7 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,15 +43,25 @@ public class PaymentContoller {
     private final PaymentService paymentService;
 
     @PostMapping("/confirm")
-    public ResponseEntity<PaymentConfirmResponse> confirm(@Valid @RequestBody TossConfirmRequest tossConfirmRequest) {
+    public PaymentConfirmResponse confirm(@Valid @RequestBody TossConfirmRequest tossConfirmRequest) {
         log.info("[PAYMENT] confirm request orderId={}, paymentKey={}", tossConfirmRequest.orderId(), tossConfirmRequest.paymentKey());
         PaymentConfirmResponse response = paymentService.confirmAndSave(tossConfirmRequest);
         log.info("[PAYMENT] confirm success orderId={}, remainingAmount={}", tossConfirmRequest.orderId(), response.remainingAmount());
-        return ResponseEntity.ok(response);
+        return response;
+    }
+
+    @PostMapping("/cancel")
+    public PaymentCancelResponse cancel(@Valid @RequestBody PaymentCancelRequest paymentCancelRequest) {
+        log.info("[PAYMENT] cancel request paymentKey={}, cancelAmount={}", paymentCancelRequest.paymentKey(), paymentCancelRequest.cancelAmount());
+        PaymentCancelResponse response = paymentService.cancel(paymentCancelRequest);
+        log.info("[PAYMENT] cancel success paymentKey={}, canceledAmount={}, remainingAmount={}",
+                response.paymentKey(), response.canceledAmount(), response.remainingAmount());
+        return response;
     }
 
     @GetMapping
     public Page<OrderPaymentListResponse> getPayments(
+            @AuthenticationPrincipal User currentUser,
             @PageableDefault(sort = "approvedAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(value = "range", required = false) String range,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -56,7 +69,10 @@ public class PaymentContoller {
             @RequestParam(value = "paymentMethod", required = false) String paymentMethod,
             @RequestParam(value = "orderType", required = false) String orderType
     ) {
+        Long storeId = resolveStoreId(currentUser);
+
         PaymentSearchRequest searchRequest = new PaymentSearchRequest(
+                storeId,
                 parseEnum(range, PaymentQuickRange.class, "range"),
                 from,
                 to,
@@ -86,5 +102,13 @@ public class PaymentContoller {
                     String.format("지원하지 않는 %s 값입니다: %s", parameterName, value)
             );
         }
+    }
+
+    private Long resolveStoreId(User currentUser) {
+        Long storeId = currentUser != null ? currentUser.getCurrentStoreId() : null;
+        if (storeId == null) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "사용자에 연결된 매장을 확인할 수 없습니다.");
+        }
+        return storeId;
     }
 }

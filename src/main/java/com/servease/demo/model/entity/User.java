@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -34,6 +35,8 @@ public class User extends BaseEntity implements UserDetails {
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Store> stores = new ArrayList<>();
 
+    @Transient
+    private Long currentStoreId;
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
@@ -45,6 +48,14 @@ public class User extends BaseEntity implements UserDetails {
         this.username = username;
         this.phoneNumber = phoneNumber;
 
+    }
+
+    public Long getCurrentStoreId() {
+        return currentStoreId;
+    }
+
+    public void setCurrentStoreId(Long currentStoreId) {
+        this.currentStoreId = currentStoreId;
     }
 
     @Override
