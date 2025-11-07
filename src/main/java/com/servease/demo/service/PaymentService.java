@@ -486,6 +486,7 @@ public class PaymentService {
 
             return switch (orderTypeFilter) {
                 case CANCELED -> cb.equal(statusPath, OrderStatus.CANCELED);
+                case REFUNDED -> cb.equal(statusPath, OrderStatus.REFUNDED);
                 case PARTIAL -> cb.or(
                         cb.equal(statusPath, OrderStatus.PARTIALLY_PAID),
                         cb.and(
@@ -555,6 +556,7 @@ public class PaymentService {
 
             return switch (orderTypeFilter) {
                 case CANCELED -> cb.equal(statusPath, OrderStatus.CANCELED);
+                case REFUNDED -> cb.equal(statusPath, OrderStatus.REFUNDED);
                 case PARTIAL -> cb.or(
                         cb.equal(statusPath, OrderStatus.PARTIALLY_PAID),
                         cb.and(
