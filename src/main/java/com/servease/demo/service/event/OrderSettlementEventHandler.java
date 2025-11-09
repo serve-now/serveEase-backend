@@ -24,6 +24,6 @@ public class OrderSettlementEventHandler {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleOrderRefunded(OrderRefundedEvent event) {
-        settlementService.recordCashRefund(event.orderId(), event.storeId(), event.refundAmount(), event.refundedAt());
+        settlementService.recordRefund(event.orderId(), event.storeId(), event.refundAmount(), event.refundedAt());
     }
 }

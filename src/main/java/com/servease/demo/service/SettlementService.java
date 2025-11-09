@@ -25,10 +25,10 @@ public class SettlementService {
     }
 
     @Transactional
-    public void recordCashRefund(Long orderId,
-                                 Long storeId,
-                                 Integer refundAmount,
-                                 OffsetDateTime refundedAt) {
+    public void recordRefund(Long orderId,
+                             Long storeId,
+                             Integer refundAmount,
+                             OffsetDateTime refundedAt) {
         if (storeId == null || refundAmount == null) {
             log.warn("Skip refund settlement. Missing storeId/refundAmount orderId={}, storeId={}, refundAmount={}",
                     orderId, storeId, refundAmount);
