@@ -20,4 +20,10 @@ public class OrderSettlementEventHandler {
     public void handleOrderFullyPaid(OrderFullyPaidEvent event) {
         settlementService.settleOrder(event.orderId());
     }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void handleOrderRefunded(OrderRefundedEvent event) {
+        settlementService.recordCashRefund(event.orderId(), event.storeId(), event.refundAmount(), event.refundedAt());
+    }
 }
