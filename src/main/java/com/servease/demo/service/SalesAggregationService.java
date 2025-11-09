@@ -46,13 +46,12 @@ public class SalesAggregationService {
             return;
         }
 
-        RestaurantTable restaurantTable = order.getRestaurantTable();
-        if (restaurantTable == null || restaurantTable.getStore() == null) {
+        Store store = resolveStore(order);
+        if (store == null) {
             log.warn("Skip daily aggregation. Store not found for order. orderId={}", orderId);
             return;
         }
 
-        Store store = restaurantTable.getStore();
         LocalDateTime paidAt = order.getPaidAt();
         if (paidAt == null) {
             log.warn("Paid timestamp missing for completed order. Falling back to orderTime. orderId={}", orderId);
@@ -117,5 +116,13 @@ public class SalesAggregationService {
 
     private ZoneId resolveStoreZone(Store store) {
         return ZoneId.of("Asia/Seoul");
+    }
+
+    private Store resolveStore(Order order) {
+        if (order.getStore() != null) {
+            return order.getStore();
+        }
+        RestaurantTable table = order.getRestaurantTable();
+        return table != null ? table.getStore() : null;
     }
 }
