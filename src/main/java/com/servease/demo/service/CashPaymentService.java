@@ -12,6 +12,7 @@ import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.repository.CashPaymentRefundRepository;
 import com.servease.demo.repository.CashPaymentRepository;
 import com.servease.demo.service.event.OrderFullyPaidEvent;
+import com.servease.demo.service.event.OrderRefundedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -140,6 +141,43 @@ public class CashPaymentService {
                 )
         );
 
+        publishOrderRefundedEvent(order, refund);
         return CashPaymentRefundResponse.from(order, cashPayment, refund);
+    }
+
+    private void publishOrderRefundedEvent(Order order, CashPaymentRefund refund) {
+        Long storeId = resolveStoreId(order);
+        if (storeId == null) {
+            log.warn("[REFUND] store not found for order {}, skip settlement event", order.getId());
+            return;
+        }
+
+        Long orderId = order.getId();
+        Integer refundAmount = refund.getRefundAmount();
+        OffsetDateTime refundedAt = refund.getRefundedAt();
+
+        Runnable publish = () -> {
+            log.info("[REFUND] cash refund processed. publishing settlement event orderId={}, storeId={}, amount={}",
+                    orderId, storeId, refundAmount);
+            eventPublisher.publishEvent(new OrderRefundedEvent(orderId, storeId, refundAmount, refundedAt));
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    publish.run();
+                }
+            });
+        } else {
+            publish.run();
+        }
+    }
+
+    private Long resolveStoreId(Order order) {
+        if (order.getRestaurantTable() == null || order.getRestaurantTable().getStore() == null) {
+            return null;
+        }
+        return order.getRestaurantTable().getStore().getId();
     }
 }
