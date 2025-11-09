@@ -1,5 +1,7 @@
 package com.servease.demo.service;
 
+import com.servease.demo.global.exception.BusinessException;
+import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.RestaurantTable;
 import com.servease.demo.model.entity.SalesDaily;
@@ -7,13 +9,17 @@ import com.servease.demo.model.entity.Store;
 import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.repository.OrderRepository;
 import com.servease.demo.repository.SalesDailyRepository;
+import com.servease.demo.repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
 
@@ -24,6 +30,7 @@ public class SalesAggregationService {
 
     private final OrderRepository orderRepository;
     private final SalesDailyRepository salesDailyRepository;
+    private final StoreRepository storeRepository;
 
     @Transactional
     public void upsertDaily(Long orderId) {
@@ -63,6 +70,43 @@ public class SalesAggregationService {
                     return existing;
                 })
                 .orElseGet(() -> SalesDaily.createDailyAggregate(store, salesDate, dailyNetSales, 1));
+
+        salesDailyRepository.save(salesDaily);
+    }
+
+    @Transactional
+    public void recordRefund(Long storeId, OffsetDateTime refundedAt, Integer refundAmount) {
+        if (storeId == null || refundAmount == null || refundAmount <= 0) {
+            log.warn("Skip daily refund aggregation. Invalid storeId/refundAmount storeId={}, refundAmount={}",
+                    storeId, refundAmount);
+            return;
+        }
+
+        Store store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORE_NOT_FOUND, "정산용 스토어를 찾을 수 없습니다. storeId=" + storeId));
+
+        ZoneId storeZone = resolveStoreZone(store);
+        OffsetDateTime effectiveRefundedAt = refundedAt != null ? refundedAt : OffsetDateTime.now(storeZone);
+        LocalDate refundDate = effectiveRefundedAt.atZoneSameInstant(storeZone).toLocalDate();
+
+        SalesDaily salesDaily = salesDailyRepository.findByStoreIdAndDate(storeId, refundDate)
+                .orElseGet(() -> SalesDaily.createDailyAggregate(store, refundDate, 0L, 0));
+
+        long refundDelta = refundAmount.longValue();
+        long currentNet = Optional.ofNullable(salesDaily.getDailyNetSales()).orElse(0L);
+        long currentCanceled = Optional.ofNullable(salesDaily.getDailyCanceledAmount()).orElse(0L);
+        int currentOrderCount = Optional.ofNullable(salesDaily.getOrderCount()).orElse(0);
+
+        salesDaily.setDailyNetSales(currentNet - refundDelta);
+        salesDaily.setDailyCanceledAmount(currentCanceled + refundDelta);
+        salesDaily.setOrderCount(currentOrderCount);
+
+        if (currentOrderCount <= 0) {
+            salesDaily.setDailyAverageOrderValue(BigDecimal.ZERO);
+        } else {
+            salesDaily.setDailyAverageOrderValue(BigDecimal.valueOf(salesDaily.getDailyNetSales())
+                    .divide(BigDecimal.valueOf(currentOrderCount), 2, RoundingMode.HALF_UP));
+        }
 
         salesDailyRepository.save(salesDaily);
     }
