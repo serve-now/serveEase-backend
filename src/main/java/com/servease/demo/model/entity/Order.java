@@ -34,6 +34,10 @@ public class Order {
     @JoinColumn(name = "table_id")
     private RestaurantTable restaurantTable;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "store_id")
+    private Store store;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private OrderStatus status;

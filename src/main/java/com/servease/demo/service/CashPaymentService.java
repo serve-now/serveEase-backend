@@ -8,6 +8,7 @@ import com.servease.demo.global.exception.ErrorCode;
 import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.CashPaymentRefund;
 import com.servease.demo.model.entity.Order;
+import com.servease.demo.model.entity.RestaurantTable;
 import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.repository.CashPaymentRefundRepository;
 import com.servease.demo.repository.CashPaymentRepository;
@@ -175,9 +176,15 @@ public class CashPaymentService {
     }
 
     private Long resolveStoreId(Order order) {
-        if (order.getRestaurantTable() == null || order.getRestaurantTable().getStore() == null) {
-            return null;
+        if (order.getStore() != null) {
+            return order.getStore().getId();
         }
-        return order.getRestaurantTable().getStore().getId();
+
+        RestaurantTable table = order.getRestaurantTable();
+        if (table != null && table.getStore() != null) {
+            return table.getStore().getId();
+        }
+
+        return null;
     }
 }
