@@ -57,6 +57,7 @@ public class OrderService {
         Order newOrder = Order.builder()
                 .orderId(orderId)
                 .restaurantTable(targetTable)
+                .store(targetTable.getStore())
                 .status(OrderStatus.ORDERED)
                 .isPaid(false)
                 .build();
