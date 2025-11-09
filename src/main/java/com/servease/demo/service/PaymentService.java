@@ -63,6 +63,7 @@ public class PaymentService {
     private final OrderService orderService;
     private final PlatformTransactionManager transactionManager;
     private final ApplicationEventPublisher eventPublisher;
+    private final SettlementService settlementService;
     private final ObjectMapper objectMapper;
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Seoul");
 
@@ -369,13 +370,17 @@ public class PaymentService {
             );
             paymentCancellationRepository.save(cancellation);
 
-            return PaymentCancelResponse.from(
+            PaymentCancelResponse cancelResponse = PaymentCancelResponse.from(
                     paymentForUpdate,
                     order,
                     paymentForUpdate.getAmount(),
                     context.cancelReason(),
                     context.canceledAt()
             );
+
+            scheduleRefundSettlement(order, paymentForUpdate.getAmount(), context.canceledAt());
+
+            return cancelResponse;
         });
 
         if (response == null) {
@@ -396,6 +401,39 @@ public class PaymentService {
             return null;
         }
         return response.getCancels().get(response.getCancels().size() - 1);
+    }
+
+    private void scheduleRefundSettlement(Order order, Integer cancelAmount, OffsetDateTime canceledAt) {
+        Long storeId = resolveStoreId(order);
+        if (storeId == null) {
+            log.warn("[REFUND] store not found for order {}, skip settlement aggregation", order.getId());
+            return;
+        }
+
+        Long orderId = order.getId();
+        Runnable record = () -> {
+            log.info("[REFUND] card refund processed. aggregating settlement orderId={}, storeId={}, amount={}",
+                    orderId, storeId, cancelAmount);
+            settlementService.recordRefund(orderId, storeId, cancelAmount, canceledAt);
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    record.run();
+                }
+            });
+        } else {
+            record.run();
+        }
+    }
+
+    private Long resolveStoreId(Order order) {
+        if (order.getRestaurantTable() == null || order.getRestaurantTable().getStore() == null) {
+            return null;
+        }
+        return order.getRestaurantTable().getStore().getId();
     }
 
 
