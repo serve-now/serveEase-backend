@@ -20,12 +20,14 @@ import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
 import com.servease.demo.model.entity.PaymentCancellation;
+import com.servease.demo.model.entity.CashPaymentRefund;
 import com.servease.demo.model.entity.RestaurantTable;
 import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.model.enums.PaymentMethodFilter;
 import com.servease.demo.model.enums.PaymentOrderTypeFilter;
 import com.servease.demo.model.enums.PaymentQuickRange;
 import com.servease.demo.repository.CashPaymentRepository;
+import com.servease.demo.repository.CashPaymentRefundRepository;
 import com.servease.demo.repository.PaymentCancellationRepository;
 import com.servease.demo.repository.PaymentRepository;
 import com.servease.demo.service.event.OrderFullyPaidEvent;
@@ -63,6 +65,7 @@ public class PaymentService {
     private final TossPaymentClient tossPaymentClient;
     private final PaymentRepository paymentRepository;
     private final CashPaymentRepository cashPaymentRepository;
+    private final CashPaymentRefundRepository cashPaymentRefundRepository;
     private final PaymentCancellationRepository paymentCancellationRepository;
     private final OrderService orderService;
     private final PlatformTransactionManager transactionManager;
@@ -199,13 +202,46 @@ public class PaymentService {
                 .map(each -> responseByPaymentId.get(each.getId()))
                 .toList();
 
+        Map<Long, PaymentCancellation> cancellationsByPaymentId = payments.isEmpty()
+                ? Map.of()
+                : paymentCancellationRepository.findByPaymentIdIn(
+                        payments.stream()
+                                .map(Payment::getId)
+                                .toList()
+                ).stream()
+                .collect(Collectors.toMap(
+                        cancellation -> cancellation.getPayment().getId(),
+                        Function.identity(),
+                        (existing, replacement) -> replacement
+                ));
+
         List<CashPayment> cashPayments = cashPaymentRepository.findByOrderOrderId(orderId);
+
+        Map<Long, CashPaymentRefund> cashRefundsByPaymentId = cashPayments.isEmpty()
+                ? Map.of()
+                : cashPaymentRefundRepository.findByCashPaymentIdIn(
+                        cashPayments.stream()
+                                .map(CashPayment::getId)
+                                .toList()
+                ).stream()
+                .collect(Collectors.toMap(
+                        refund -> refund.getCashPayment().getId(),
+                        Function.identity(),
+                        (existing, replacement) -> replacement
+                ));
 
         if (payments.isEmpty() && cashPayments.isEmpty()) {
             throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다.");
         }
 
-        return OrderPaymentDetailResponse.from(order, payments, paymentResponses, cashPayments);
+        return OrderPaymentDetailResponse.from(
+                order,
+                payments,
+                paymentResponses,
+                cashPayments,
+                cancellationsByPaymentId,
+                cashRefundsByPaymentId
+        );
     }
 
     private void validateOrderOwnership(Order order) {
@@ -524,7 +560,7 @@ public class PaymentService {
 
             return switch (orderTypeFilter) {
                 case CANCELED -> cb.equal(statusPath, OrderStatus.CANCELED);
-                case REFUNDED -> cb.equal(statusPath, OrderStatus.REFUNDED);
+                case REFUNDED -> statusPath.in(OrderStatus.REFUNDED, OrderStatus.PARTIALLY_REFUNDED);
                 case PARTIAL -> cb.or(
                         cb.equal(statusPath, OrderStatus.PARTIALLY_PAID),
                         cb.and(
@@ -594,7 +630,7 @@ public class PaymentService {
 
             return switch (orderTypeFilter) {
                 case CANCELED -> cb.equal(statusPath, OrderStatus.CANCELED);
-                case REFUNDED -> cb.equal(statusPath, OrderStatus.REFUNDED);
+                case REFUNDED -> statusPath.in(OrderStatus.REFUNDED, OrderStatus.PARTIALLY_REFUNDED);
                 case PARTIAL -> cb.or(
                         cb.equal(statusPath, OrderStatus.PARTIALLY_PAID),
                         cb.and(
