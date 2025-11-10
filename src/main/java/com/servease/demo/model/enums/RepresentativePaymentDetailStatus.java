@@ -5,7 +5,7 @@ import java.util.Locale;
 public enum RepresentativePaymentDetailStatus {
 
     PAID("결제 완료"),
-    CANCELED("결제 취소"),
+    REFUNDED("결제 취소"),
     CONFIRMATION_REQUIRED("확인 필요");
 
     private final String label;
@@ -25,7 +25,7 @@ public enum RepresentativePaymentDetailStatus {
 
         return switch (normalized) {
             case "DONE", "COMPLETED" -> PAID;
-            case "REFUNDED" -> CANCELED;
+            case "REFUNDED" -> REFUNDED;
             default -> CONFIRMATION_REQUIRED;
         };
     }
