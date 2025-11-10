@@ -1,10 +1,8 @@
 package com.servease.demo.controller;
 
-import com.servease.demo.dto.request.CashPaymentRefundRequest;
 import com.servease.demo.dto.request.CashPaymentRequest;
 import com.servease.demo.dto.request.OrderItemRequest;
 import com.servease.demo.dto.response.OrderResponse;
-import com.servease.demo.dto.response.CashPaymentRefundResponse;
 import com.servease.demo.dto.response.PaymentConfirmResponse;
 import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.service.CashPaymentService;
@@ -48,20 +46,6 @@ public class OrderController {
         log.info("[ORDER] cash payment full request storeId={}, orderId={}", storeId, orderId);
         PaymentConfirmResponse response = cashPaymentService.completeOutstandingPayment(orderId);
         log.info("[ORDER] cash payment full success storeId={}, orderId={}, remainingAmount={}", storeId, orderId, response.remainingAmount());
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/{orderId}/payments/cash/refund")
-    public ResponseEntity<CashPaymentRefundResponse> refundCash(
-            @PathVariable Long storeId,
-            @PathVariable Long orderId,
-            @Valid @RequestBody CashPaymentRefundRequest request
-    ) {
-        log.info("[ORDER] cash refund request storeId={}, orderId={}, cashPaymentId={}, amount={}",
-                storeId, orderId, request.cashPaymentId(), request.refundAmount());
-        CashPaymentRefundResponse response = cashPaymentService.refundCashPayment(orderId, request);
-        log.info("[ORDER] cash refund success storeId={}, orderId={}, cashPaymentId={}, paidAmount={}, remainingAmount={}",
-                storeId, orderId, response.cashPaymentId(), response.paidAmount(), response.remainingAmount());
         return ResponseEntity.ok(response);
     }
 
