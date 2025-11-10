@@ -2,8 +2,11 @@ package com.servease.demo.dto.response;
 
 import com.servease.demo.dto.PaymentResponseDto;
 import com.servease.demo.model.entity.CashPayment;
+import com.servease.demo.model.entity.CashPaymentRefund;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
+import com.servease.demo.model.entity.PaymentCancellation;
+import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.model.enums.RepresentativePaymentDetailStatus;
 
 import java.time.ZoneId;
@@ -11,6 +14,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public record OrderPaymentDetailResponse(
@@ -19,8 +23,6 @@ public record OrderPaymentDetailResponse(
         Integer splitCount,
         String representativePaymentMethod,
         String representativePaymentStatus,
-        RepresentativePaymentDetailStatus representativePaymentDetailStatus,
-        String representativePaymentDetailStatusLabel,
         ZonedDateTime representativeApprovedAt,
         Integer tableNumber,
         String orderStatus,
@@ -34,11 +36,15 @@ public record OrderPaymentDetailResponse(
     public static OrderPaymentDetailResponse from(Order order,
                                                   List<Payment> payments,
                                                   List<PaymentResponseDto> paymentResponses,
-                                                  List<CashPayment> cashPayments) {
+                                                  List<CashPayment> cashPayments,
+                                                  Map<Long, PaymentCancellation> paymentCancellationByPaymentId,
+                                                  Map<Long, CashPaymentRefund> cashRefundByPaymentId) {
         Objects.requireNonNull(order, "order must not be null");
         Objects.requireNonNull(payments, "payments must not be null");
         Objects.requireNonNull(paymentResponses, "paymentResponses must not be null");
         Objects.requireNonNull(cashPayments, "cashPayments must not be null");
+        Objects.requireNonNull(paymentCancellationByPaymentId, "paymentCancellationByPaymentId must not be null");
+        Objects.requireNonNull(cashRefundByPaymentId, "cashRefundByPaymentId must not be null");
 
         if (payments.size() != paymentResponses.size()) {
             throw new IllegalArgumentException("payments size and paymentResponses size must match");
@@ -51,7 +57,8 @@ public record OrderPaymentDetailResponse(
         List<Payment> sortedPayments = payments.stream()
                 .sorted(Comparator.comparing((Payment payment) -> sortKey(payment)).reversed())
                 .toList();
-        String orderStatus = order.getStatus() != null ? order.getStatus().name() : null;
+        OrderStatus orderStatusEnum = order.getStatus();
+        String orderStatus = orderStatusEnum != null ? orderStatusEnum.name() : null;
 
         var responseByPaymentId = new java.util.HashMap<Long, PaymentResponseDto>();
         for (int i = 0; i < payments.size(); i++) {
@@ -64,13 +71,18 @@ public record OrderPaymentDetailResponse(
             SplitPaymentDetailResponse detail = SplitPaymentDetailResponse.from(
                     payment,
                     responseByPaymentId.get(payment.getId()),
-                    orderStatus
+                    orderStatus,
+                    paymentCancellationByPaymentId.get(payment.getId())
             );
             splitEntries.add(new SplitEntry(sortKey(payment), detail, payment.getAmount()));
         }
 
         for (CashPayment cashPayment : cashPayments) {
-            SplitPaymentDetailResponse detail = SplitPaymentDetailResponse.fromCash(cashPayment, orderStatus);
+            SplitPaymentDetailResponse detail = SplitPaymentDetailResponse.fromCash(
+                    cashPayment,
+                    orderStatus,
+                    cashRefundByPaymentId.get(cashPayment.getId())
+            );
             splitEntries.add(new SplitEntry(sortKey(cashPayment), detail, cashPayment.getAmount()));
         }
 
@@ -87,6 +99,17 @@ public record OrderPaymentDetailResponse(
 
         SplitPaymentDetailResponse representative = splitDetails.get(0);
 
+        boolean orderMarkedRefunded = orderStatusEnum == OrderStatus.REFUNDED
+                || orderStatusEnum == OrderStatus.PARTIALLY_REFUNDED;
+
+        boolean splitMarkedRefunded = splitDetails.stream()
+                .anyMatch(split -> split.representativePaymentDetailStatus() == RepresentativePaymentDetailStatus.REFUNDED);
+
+        boolean hasRefundedSplit = orderMarkedRefunded
+                || !paymentCancellationByPaymentId.isEmpty()
+                || splitMarkedRefunded;
+
+        String representativePaymentStatus = hasRefundedSplit ? "REFUNDED" : "COMPLETED";
         List<OrderItemSummaryResponse> orderItems = order.getOrderItems() != null
                 ? order.getOrderItems().stream()
                 .filter(Objects::nonNull)
@@ -103,9 +126,7 @@ public record OrderPaymentDetailResponse(
                 totalPaymentAmount,
                 splitDetails.size(),
                 representative.paymentMethod(),
-                representative.paymentStatus(),
-                representative.representativePaymentDetailStatus(),
-                representative.representativePaymentDetailStatusLabel(),
+                representativePaymentStatus,
                 representative.approvedAt(),
                 tableNumber,
                 orderStatus,
