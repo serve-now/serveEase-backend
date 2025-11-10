@@ -30,6 +30,8 @@ import java.util.Objects;
 @Slf4j
 public class CashPaymentService {
 
+    private static final String DEFAULT_REFUND_REASON = "현금 결제 단순 변심";
+
     private final CashPaymentRepository cashPaymentRepository;
     private final CashPaymentRefundRepository cashPaymentRefundRepository;
     private final OrderService orderService;
@@ -101,15 +103,11 @@ public class CashPaymentService {
     }
 
     @Transactional
-    public CashPaymentRefundResponse refundCashPayment(Long orderId, CashPaymentRefundRequest request) {
-        Order order = orderService.getOrderByIdWithLock(orderId);
-
-        CashPayment cashPayment = cashPaymentRepository.findById(request.cashPaymentId())
+    public CashPaymentRefundResponse refundCashPayment(Long cashPaymentId, CashPaymentRefundRequest request) {
+        CashPayment cashPayment = cashPaymentRepository.findById(cashPaymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "현금 결제 내역을 찾을 수 없습니다."));
 
-        if (!Objects.equals(cashPayment.getOrder().getId(), order.getId())) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "해당 주문의 현금 결제가 아닙니다.");
-        }
+        Order order = orderService.getOrderByIdWithLock(cashPayment.getOrder().getId());
 
         if (cashPaymentRefundRepository.existsByCashPaymentId(cashPayment.getId())) {
             throw new BusinessException(ErrorCode.CASH_PAYMENT_ALREADY_REFUNDED, "이미 환불된 현금 결제입니다.");
@@ -137,7 +135,7 @@ public class CashPaymentService {
                 CashPaymentRefund.of(
                         cashPayment,
                         refundAmount,
-                        request.refundReason(),
+                        DEFAULT_REFUND_REASON,
                         OffsetDateTime.now()
                 )
         );
