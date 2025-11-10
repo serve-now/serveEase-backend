@@ -26,4 +26,17 @@ public class StoreService {
         return storeRepository.findById(storeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORE_NOT_FOUND, "Store not found: " + storeId));
     }
+
+    @Transactional
+    public Store updateStoreName(Long storeId, Long ownerId, String storeName) {
+        Store store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORE_NOT_FOUND, "Store not found: " + storeId));
+
+        if (!store.getOwner().getId().equals(ownerId)) {
+            throw new BusinessException(ErrorCode.STORE_ACCESS_DENIED);
+        }
+
+        store.changeName(storeName);
+        return store;
+    }
 }

@@ -44,4 +44,8 @@ public class Store extends BaseEntity {
         }
         return store;
     }
+
+    public void changeName(String name) {
+        this.name = name;
+    }
 }
