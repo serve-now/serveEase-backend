@@ -2,12 +2,15 @@ package com.servease.demo.dto.response;
 
 import com.servease.demo.dto.PaymentResponseDto;
 import com.servease.demo.model.entity.CashPayment;
+import com.servease.demo.model.entity.CashPaymentRefund;
 import com.servease.demo.model.entity.Payment;
+import com.servease.demo.model.entity.PaymentCancellation;
 import com.servease.demo.model.enums.RepresentativePaymentDetailStatus;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Objects;
+import java.util.Locale;
 
 public record SplitPaymentDetailResponse(
         Long paymentId,
@@ -27,7 +30,8 @@ public record SplitPaymentDetailResponse(
 
     public static SplitPaymentDetailResponse from(Payment payment,
                                                   PaymentResponseDto paymentResponseDto,
-                                                  String fallbackStatus) {
+                                                  String fallbackStatus,
+                                                  PaymentCancellation paymentCancellation) {
         Objects.requireNonNull(payment, "payment must not be null");
 
         Integer amount = payment.getAmount();
@@ -69,7 +73,12 @@ public record SplitPaymentDetailResponse(
             approvalNumber = payment.getPaymentKey();
         }
 
+        if (paymentCancellation != null) {
+            status = RepresentativePaymentDetailStatus.REFUNDED.name();
+        }
+
         displayStatus = RepresentativePaymentDetailStatus.from(status);
+        String paymentStatusForResponse = normalizePaymentStatus(status);
 
         return new SplitPaymentDetailResponse(
                 payment.getId(),
@@ -77,7 +86,7 @@ public record SplitPaymentDetailResponse(
                 amount,
                 vatAmount,
                 method,
-                status,
+                paymentStatusForResponse,
                 displayStatus,
                 displayStatus.getLabel(),
                 approvedAt,
@@ -86,7 +95,9 @@ public record SplitPaymentDetailResponse(
         );
     }
 
-    public static SplitPaymentDetailResponse fromCash(CashPayment cashPayment, String fallbackStatus) {
+    public static SplitPaymentDetailResponse fromCash(CashPayment cashPayment,
+                                                     String fallbackStatus,
+                                                     CashPaymentRefund cashPaymentRefund) {
         Objects.requireNonNull(cashPayment, "cashPayment must not be null");
 
         Integer amount = cashPayment.getAmount();
@@ -98,7 +109,15 @@ public record SplitPaymentDetailResponse(
 
         String approvalNumber = String.valueOf(cashPayment.getId());
 
-        RepresentativePaymentDetailStatus displayStatus = RepresentativePaymentDetailStatus.from(fallbackStatus);
+        boolean refunded = cashPaymentRefund != null;
+
+        RepresentativePaymentDetailStatus displayStatus = refunded
+                ? RepresentativePaymentDetailStatus.REFUNDED
+                : RepresentativePaymentDetailStatus.PAID;
+
+        String paymentStatusForResponse = refunded
+                ? RepresentativePaymentDetailStatus.REFUNDED.name()
+                : normalizePaymentStatus(fallbackStatus);
 
         return new SplitPaymentDetailResponse(
                 cashPayment.getId(),
@@ -106,12 +125,23 @@ public record SplitPaymentDetailResponse(
                 amount,
                 vatAmount,
                 "CASH",
-                fallbackStatus,
+                paymentStatusForResponse,
                 displayStatus,
                 displayStatus.getLabel(),
                 approvedAt,
                 approvalNumber,
                 null
         );
+    }
+
+    private static String normalizePaymentStatus(String status) {
+        if (status == null) {
+            return null;
+        }
+        String normalized = status.trim().toUpperCase(Locale.ROOT);
+        if ("PARTIALLY_PAID".equals(normalized) || "PARTIALLY_REFUNDED".equals(normalized)) {
+            return "DONE";
+        }
+        return normalized;
     }
 }

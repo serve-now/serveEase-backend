@@ -130,7 +130,6 @@ public class CashPaymentService {
         }
 
         order.refundPayment(refundAmount);
-        markOrderAsRefunded(order);
 
         CashPaymentRefund refund = cashPaymentRefundRepository.save(
                 CashPaymentRefund.of(
@@ -143,14 +142,6 @@ public class CashPaymentService {
 
         publishOrderRefundedEvent(order, refund);
         return CashPaymentRefundResponse.from(order, cashPayment, refund);
-    }
-
-    private void markOrderAsRefunded(Order order) {
-        if (order.getStatus() != OrderStatus.CANCELED) {
-            order.setStatus(OrderStatus.REFUNDED);
-        }
-        order.setPaid(false);
-        order.setPaidAt(null);
     }
 
     private void publishOrderRefundedEvent(Order order, CashPaymentRefund refund) {
