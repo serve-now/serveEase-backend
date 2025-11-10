@@ -3,7 +3,7 @@ package com.servease.demo.dto.response;
 import com.servease.demo.dto.PaymentResponseDto;
 import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Payment;
-import com.servease.demo.model.enums.PaymentDisplayStatus;
+import com.servease.demo.model.enums.RepresentativePaymentDetailStatus;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -16,7 +16,7 @@ public record SplitPaymentDetailResponse(
         Integer vat,
         String paymentMethod,
         String paymentStatus,
-        PaymentDisplayStatus representativePaymentDetailStatus,
+        RepresentativePaymentDetailStatus representativePaymentDetailStatus,
         ZonedDateTime approvedAt,
         String approvalNumber,
         String approvalStatus
@@ -36,7 +36,7 @@ public record SplitPaymentDetailResponse(
         ZonedDateTime approvedAt = null;
         String approvalNumber = null;
         String approvalStatus = null;
-        PaymentDisplayStatus displayStatus;
+        RepresentativePaymentDetailStatus displayStatus;
 
         if (payment.getApprovedAt() != null) {
             approvedAt = payment.getApprovedAt().atZoneSameInstant(DEFAULT_ZONE);
@@ -68,7 +68,7 @@ public record SplitPaymentDetailResponse(
             approvalNumber = payment.getPaymentKey();
         }
 
-        displayStatus = PaymentDisplayStatus.from(status);
+        displayStatus = RepresentativePaymentDetailStatus.from(status);
 
         return new SplitPaymentDetailResponse(
                 payment.getId(),
@@ -96,7 +96,7 @@ public record SplitPaymentDetailResponse(
 
         String approvalNumber = String.valueOf(cashPayment.getId());
 
-        PaymentDisplayStatus displayStatus = PaymentDisplayStatus.from(fallbackStatus);
+        RepresentativePaymentDetailStatus displayStatus = RepresentativePaymentDetailStatus.from(fallbackStatus);
 
         return new SplitPaymentDetailResponse(
                 cashPayment.getId(),
