@@ -101,5 +101,13 @@ public class User extends BaseEntity implements UserDetails {
         return isActive;
     }
 
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
+    public void changePhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
 
 }
