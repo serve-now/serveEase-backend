@@ -17,6 +17,7 @@ public record SplitPaymentDetailResponse(
         String paymentMethod,
         String paymentStatus,
         RepresentativePaymentDetailStatus representativePaymentDetailStatus,
+        String representativePaymentDetailStatusLabel,
         ZonedDateTime approvedAt,
         String approvalNumber,
         String approvalStatus
@@ -78,6 +79,7 @@ public record SplitPaymentDetailResponse(
                 method,
                 status,
                 displayStatus,
+                displayStatus.getLabel(),
                 approvedAt,
                 approvalNumber,
                 approvalStatus
@@ -106,6 +108,7 @@ public record SplitPaymentDetailResponse(
                 "CASH",
                 fallbackStatus,
                 displayStatus,
+                displayStatus.getLabel(),
                 approvedAt,
                 approvalNumber,
                 null
