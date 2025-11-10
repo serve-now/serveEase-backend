@@ -384,14 +384,7 @@ public class PaymentService {
 
             Order order = orderService.getOrderByIdWithLock(paymentForUpdate.getOrder().getId());
 
-            if (!Objects.equals(order.getPaidAmount(), paymentForUpdate.getAmount())) {
-                throw new BusinessException(
-                        ErrorCode.CANCEL_AMOUNT_NOT_MATCH,
-                        String.format("주문의 결제 금액(%d)과 취소 대상 금액(%d)이 일치하지 않습니다.",
-                                order.getPaidAmount(), paymentForUpdate.getAmount()));
-            }
-
-            order.revertFullPayment();
+            order.refundPayment(paymentForUpdate.getAmount());
 
             PaymentCancellation cancellation = PaymentCancellation.of(
                     paymentForUpdate,

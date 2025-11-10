@@ -3,6 +3,7 @@ package com.servease.demo.dto.response;
 import com.servease.demo.dto.PaymentResponseDto;
 import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Payment;
+import com.servease.demo.model.enums.RepresentativePaymentDetailStatus;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -15,6 +16,7 @@ public record SplitPaymentDetailResponse(
         Integer vat,
         String paymentMethod,
         String paymentStatus,
+        RepresentativePaymentDetailStatus representativePaymentDetailStatus,
         ZonedDateTime approvedAt,
         String approvalNumber,
         String approvalStatus
@@ -34,6 +36,7 @@ public record SplitPaymentDetailResponse(
         ZonedDateTime approvedAt = null;
         String approvalNumber = null;
         String approvalStatus = null;
+        RepresentativePaymentDetailStatus displayStatus;
 
         if (payment.getApprovedAt() != null) {
             approvedAt = payment.getApprovedAt().atZoneSameInstant(DEFAULT_ZONE);
@@ -65,6 +68,8 @@ public record SplitPaymentDetailResponse(
             approvalNumber = payment.getPaymentKey();
         }
 
+        displayStatus = RepresentativePaymentDetailStatus.from(status);
+
         return new SplitPaymentDetailResponse(
                 payment.getId(),
                 payment.getPaymentKey(),
@@ -72,6 +77,7 @@ public record SplitPaymentDetailResponse(
                 vatAmount,
                 method,
                 status,
+                displayStatus,
                 approvedAt,
                 approvalNumber,
                 approvalStatus
@@ -90,6 +96,8 @@ public record SplitPaymentDetailResponse(
 
         String approvalNumber = String.valueOf(cashPayment.getId());
 
+        RepresentativePaymentDetailStatus displayStatus = RepresentativePaymentDetailStatus.from(fallbackStatus);
+
         return new SplitPaymentDetailResponse(
                 cashPayment.getId(),
                 approvalNumber,
@@ -97,6 +105,7 @@ public record SplitPaymentDetailResponse(
                 vatAmount,
                 "CASH",
                 fallbackStatus,
+                displayStatus,
                 approvedAt,
                 approvalNumber,
                 null

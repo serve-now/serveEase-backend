@@ -4,6 +4,7 @@ import com.servease.demo.dto.PaymentResponseDto;
 import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
+import com.servease.demo.model.enums.RepresentativePaymentDetailStatus;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -18,6 +19,7 @@ public record OrderPaymentDetailResponse(
         Integer splitCount,
         String representativePaymentMethod,
         String representativePaymentStatus,
+        RepresentativePaymentDetailStatus representativePaymentDetailStatus,
         ZonedDateTime representativeApprovedAt,
         Integer tableNumber,
         String orderStatus,
@@ -101,6 +103,7 @@ public record OrderPaymentDetailResponse(
                 splitDetails.size(),
                 representative.paymentMethod(),
                 representative.paymentStatus(),
+                representative.representativePaymentDetailStatus(),
                 representative.approvedAt(),
                 tableNumber,
                 orderStatus,
