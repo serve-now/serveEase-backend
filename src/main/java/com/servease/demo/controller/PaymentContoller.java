@@ -83,9 +83,9 @@ public class PaymentContoller {
         return paymentService.getPayments(pageable, searchRequest);
     }
 
-    @GetMapping("/{paymentId}")
-    public OrderPaymentDetailResponse getPaymentDetails(@PathVariable Long paymentId) {
-        return paymentService.getPaymentDetail(paymentId);
+    @GetMapping("/orders/{orderId}")
+    public OrderPaymentDetailResponse getOrderPayments(@PathVariable String orderId) {
+        return paymentService.getPaymentDetailByOrderId(orderId);
     }
 
     private <E extends Enum<E>> E parseEnum(String value, Class<E> enumType, String parameterName) {

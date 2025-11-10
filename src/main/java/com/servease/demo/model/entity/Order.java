@@ -34,6 +34,10 @@ public class Order {
     @JoinColumn(name = "table_id")
     private RestaurantTable restaurantTable;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "store_id")
+    private Store store;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private OrderStatus status;
@@ -84,7 +88,10 @@ public class Order {
     }
 
     public void removeItemById(Long orderItemId){
-        if (this.status == OrderStatus.COMPLETED || this.status == OrderStatus.CANCELED || this.status == OrderStatus.REFUNDED) {
+        if (this.status == OrderStatus.COMPLETED
+                || this.status == OrderStatus.CANCELED
+                || this.status == OrderStatus.REFUNDED
+                || this.status == OrderStatus.PARTIALLY_REFUNDED) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot remove items from a completed or canceled order.");
         }
 
@@ -128,7 +135,9 @@ public class Order {
 
         this.isPaid = false;
         if (this.status != OrderStatus.CANCELED) {
-            this.status = OrderStatus.PARTIALLY_PAID;
+            if (this.status != OrderStatus.PARTIALLY_REFUNDED) {
+                this.status = OrderStatus.PARTIALLY_PAID;
+            }
         }
         return false;
     }
@@ -140,6 +149,9 @@ public class Order {
         if (this.paidAmount == null || refundAmount > this.paidAmount) {
             throw new BusinessException(ErrorCode.CANCEL_AMOUNT_EXCEEDS_PAID, "환불 금액이 결제 금액을 초과했습니다.");
         }
+
+        boolean wasFullyPaid = this.isPaid;
+        boolean wasPartiallyRefunded = this.status == OrderStatus.PARTIALLY_REFUNDED;
 
         int updatedPaidAmount = this.paidAmount - refundAmount;
         if (updatedPaidAmount < 0) {
@@ -162,7 +174,11 @@ public class Order {
             this.isPaid = false;
             this.paidAt = null;
             if (this.status != OrderStatus.CANCELED) {
-                this.status = OrderStatus.PARTIALLY_PAID;
+                if (wasFullyPaid || wasPartiallyRefunded) {
+                    this.status = OrderStatus.PARTIALLY_REFUNDED;
+                } else {
+                    this.status = OrderStatus.PARTIALLY_PAID;
+                }
             }
             return;
         }
@@ -193,7 +209,9 @@ public class Order {
         } else {
             this.isPaid = false;
             if (this.paidAmount > 0 && this.status != OrderStatus.CANCELED) {
-                this.status = OrderStatus.PARTIALLY_PAID;
+                if (this.status != OrderStatus.PARTIALLY_REFUNDED) {
+                    this.status = OrderStatus.PARTIALLY_PAID;
+                }
             }
             this.paidAt = null;
         }

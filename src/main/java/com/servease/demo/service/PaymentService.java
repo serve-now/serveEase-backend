@@ -20,11 +20,14 @@ import com.servease.demo.model.entity.CashPayment;
 import com.servease.demo.model.entity.Order;
 import com.servease.demo.model.entity.Payment;
 import com.servease.demo.model.entity.PaymentCancellation;
+import com.servease.demo.model.entity.CashPaymentRefund;
+import com.servease.demo.model.entity.RestaurantTable;
 import com.servease.demo.model.enums.OrderStatus;
 import com.servease.demo.model.enums.PaymentMethodFilter;
 import com.servease.demo.model.enums.PaymentOrderTypeFilter;
 import com.servease.demo.model.enums.PaymentQuickRange;
 import com.servease.demo.repository.CashPaymentRepository;
+import com.servease.demo.repository.CashPaymentRefundRepository;
 import com.servease.demo.repository.PaymentCancellationRepository;
 import com.servease.demo.repository.PaymentRepository;
 import com.servease.demo.service.event.OrderFullyPaidEvent;
@@ -37,6 +40,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import com.servease.demo.model.entity.User;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +65,7 @@ public class PaymentService {
     private final TossPaymentClient tossPaymentClient;
     private final PaymentRepository paymentRepository;
     private final CashPaymentRepository cashPaymentRepository;
+    private final CashPaymentRefundRepository cashPaymentRefundRepository;
     private final PaymentCancellationRepository paymentCancellationRepository;
     private final OrderService orderService;
     private final PlatformTransactionManager transactionManager;
@@ -161,6 +168,14 @@ public class PaymentService {
             summaries.add(OrderPaymentListResponse.from(order, paymentGroup, cashGroup));
         }
 
+        summaries.sort(
+                Comparator.comparing(
+                                OrderPaymentListResponse::representativeApprovedAt,
+                                Comparator.nullsLast(Comparator.naturalOrder())
+                        )
+                        .reversed()
+        );
+
         int total = summaries.size();
         int offset = calculateOffset(pageable, total);
         int toIndex = Math.min(offset + pageable.getPageSize(), total);
@@ -173,20 +188,11 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
-    public OrderPaymentDetailResponse getPaymentDetail(Long paymentId) {
-        Payment payment = paymentRepository.findWithOrderById(paymentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다."));
+    public OrderPaymentDetailResponse getPaymentDetailByOrderId(String orderId) {
+        Order order = orderService.getOrderByOrderId(orderId);
+        validateOrderOwnership(order);
 
-        Order order = payment.getOrder();
-        if (order == null) {
-            throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제에 연결된 주문을 찾을 수 없습니다.");
-        }
-
-        List<Payment> payments = paymentRepository.findByOrderOrderId(order.getOrderId());
-        if (payments.isEmpty()) {
-            payments = List.of(payment);
-        }
-
+        List<Payment> payments = paymentRepository.findByOrderOrderId(orderId);
         Map<Long, PaymentResponseDto> responseByPaymentId = new LinkedHashMap<>();
         for (Payment each : payments) {
             responseByPaymentId.put(each.getId(), deserializePaymentRaw(each.getRaw()));
@@ -196,9 +202,71 @@ public class PaymentService {
                 .map(each -> responseByPaymentId.get(each.getId()))
                 .toList();
 
-        List<CashPayment> cashPayments = cashPaymentRepository.findByOrderOrderId(order.getOrderId());
+        Map<Long, PaymentCancellation> cancellationsByPaymentId = payments.isEmpty()
+                ? Map.of()
+                : paymentCancellationRepository.findByPaymentIdIn(
+                        payments.stream()
+                                .map(Payment::getId)
+                                .toList()
+                ).stream()
+                .collect(Collectors.toMap(
+                        cancellation -> cancellation.getPayment().getId(),
+                        Function.identity(),
+                        (existing, replacement) -> replacement
+                ));
 
-        return OrderPaymentDetailResponse.from(order, payments, paymentResponses, cashPayments);
+        List<CashPayment> cashPayments = cashPaymentRepository.findByOrderOrderId(orderId);
+
+        Map<Long, CashPaymentRefund> cashRefundsByPaymentId = cashPayments.isEmpty()
+                ? Map.of()
+                : cashPaymentRefundRepository.findByCashPaymentIdIn(
+                        cashPayments.stream()
+                                .map(CashPayment::getId)
+                                .toList()
+                ).stream()
+                .collect(Collectors.toMap(
+                        refund -> refund.getCashPayment().getId(),
+                        Function.identity(),
+                        (existing, replacement) -> replacement
+                ));
+
+        if (payments.isEmpty() && cashPayments.isEmpty()) {
+            throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다.");
+        }
+
+        return OrderPaymentDetailResponse.from(
+                order,
+                payments,
+                paymentResponses,
+                cashPayments,
+                cancellationsByPaymentId,
+                cashRefundsByPaymentId
+        );
+    }
+
+    private void validateOrderOwnership(Order order) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "인증 정보가 필요합니다.");
+        }
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof User user)) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "인증 정보가 필요합니다.");
+        }
+
+        if (order == null) {
+            throw new BusinessException(ErrorCode.ORDER_NOT_FOUND);
+        }
+
+        var table = order.getRestaurantTable();
+        if (table == null || table.getStore() == null || table.getStore().getOwner() == null) {
+            throw new BusinessException(ErrorCode.STORE_NOT_FOUND, "주문에 연결된 가게 정보를 찾을 수 없습니다.");
+        }
+
+        Long ownerId = table.getStore().getOwner().getId();
+        if (!Objects.equals(ownerId, user.getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "다른 가게의 결제 내역에는 접근할 수 없습니다.");
+        }
     }
 
     //내부 시스템에 반영 (save직전까지)
@@ -423,10 +491,16 @@ public class PaymentService {
     }
 
     private Long resolveStoreId(Order order) {
-        if (order.getRestaurantTable() == null || order.getRestaurantTable().getStore() == null) {
-            return null;
+        if (order.getStore() != null) {
+            return order.getStore().getId();
         }
-        return order.getRestaurantTable().getStore().getId();
+
+        RestaurantTable table = order.getRestaurantTable();
+        if (table != null && table.getStore() != null) {
+            return table.getStore().getId();
+        }
+
+        return null;
     }
 
 
@@ -486,7 +560,7 @@ public class PaymentService {
 
             return switch (orderTypeFilter) {
                 case CANCELED -> cb.equal(statusPath, OrderStatus.CANCELED);
-                case REFUNDED -> cb.equal(statusPath, OrderStatus.REFUNDED);
+                case REFUNDED -> statusPath.in(OrderStatus.REFUNDED, OrderStatus.PARTIALLY_REFUNDED);
                 case PARTIAL -> cb.or(
                         cb.equal(statusPath, OrderStatus.PARTIALLY_PAID),
                         cb.and(
@@ -556,7 +630,7 @@ public class PaymentService {
 
             return switch (orderTypeFilter) {
                 case CANCELED -> cb.equal(statusPath, OrderStatus.CANCELED);
-                case REFUNDED -> cb.equal(statusPath, OrderStatus.REFUNDED);
+                case REFUNDED -> statusPath.in(OrderStatus.REFUNDED, OrderStatus.PARTIALLY_REFUNDED);
                 case PARTIAL -> cb.or(
                         cb.equal(statusPath, OrderStatus.PARTIALLY_PAID),
                         cb.and(

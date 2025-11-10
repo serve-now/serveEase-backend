@@ -57,6 +57,7 @@ public class OrderService {
         Order newOrder = Order.builder()
                 .orderId(orderId)
                 .restaurantTable(targetTable)
+                .store(targetTable.getStore())
                 .status(OrderStatus.ORDERED)
                 .isPaid(false)
                 .build();
@@ -136,7 +137,10 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. " + orderId));
         //여기서 status canceled 가 없으면 주문 삭제 후에도 add 가 되는지 test 해봐야 함
-        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED || order.getStatus() == OrderStatus.REFUNDED) {
+        if (order.getStatus() == OrderStatus.COMPLETED
+                || order.getStatus() == OrderStatus.CANCELED
+                || order.getStatus() == OrderStatus.REFUNDED
+                || order.getStatus() == OrderStatus.PARTIALLY_REFUNDED) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot add items to a completed or canceled order");
         }
 
@@ -208,7 +212,10 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다. " + orderId));
 
-        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED || order.getStatus() == OrderStatus.REFUNDED) {
+        if (order.getStatus() == OrderStatus.COMPLETED
+                || order.getStatus() == OrderStatus.CANCELED
+                || order.getStatus() == OrderStatus.REFUNDED
+                || order.getStatus() == OrderStatus.PARTIALLY_REFUNDED) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_NOT_VALID, "Cannot cancel a completed, refunded, or already canceled order.");
         }
 
