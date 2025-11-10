@@ -193,6 +193,7 @@ public class PaymentService {
         validateOrderOwnership(order);
 
         List<Payment> payments = paymentRepository.findByOrderOrderId(orderId);
+
         Map<Long, PaymentResponseDto> responseByPaymentId = new LinkedHashMap<>();
         for (Payment each : payments) {
             responseByPaymentId.put(each.getId(), deserializePaymentRaw(each.getRaw()));
@@ -202,6 +203,7 @@ public class PaymentService {
                 .map(each -> responseByPaymentId.get(each.getId()))
                 .toList();
 
+        // dev 브랜치 추가분: 카드 결제 취소 맵 구성
         Map<Long, PaymentCancellation> cancellationsByPaymentId = payments.isEmpty()
                 ? Map.of()
                 : paymentCancellationRepository.findByPaymentIdIn(
@@ -215,8 +217,15 @@ public class PaymentService {
                         (existing, replacement) -> replacement
                 ));
 
+        // 현금 결제 조회
         List<CashPayment> cashPayments = cashPaymentRepository.findByOrderOrderId(orderId);
 
+        // main 브랜치 추가분: 결제/현금 결제 모두 없으면 예외
+        if (payments.isEmpty() && cashPayments.isEmpty()) {
+            throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다.");
+        }
+
+        // dev 브랜치 추가분: 현금 환불 맵 구성
         Map<Long, CashPaymentRefund> cashRefundsByPaymentId = cashPayments.isEmpty()
                 ? Map.of()
                 : cashPaymentRefundRepository.findByCashPaymentIdIn(
@@ -229,10 +238,6 @@ public class PaymentService {
                         Function.identity(),
                         (existing, replacement) -> replacement
                 ));
-
-        if (payments.isEmpty() && cashPayments.isEmpty()) {
-            throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다.");
-        }
 
         return OrderPaymentDetailResponse.from(
                 order,
@@ -267,6 +272,7 @@ public class PaymentService {
         if (!Objects.equals(ownerId, user.getId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "다른 가게의 결제 내역에는 접근할 수 없습니다.");
         }
+        // 검사 후 정상 흐름 반환
     }
 
     //내부 시스템에 반영 (save직전까지)
@@ -301,7 +307,6 @@ public class PaymentService {
                     String.format("남은 금액(%d)을 초과하는 금액(%d)으로 결제할 수 없습니다.", remainingAmount, requestedAmount)
             );
         }
-
 
         order.recordPayment(requestedAmount);
         orderService.releaseTableIfOrderCompleted(order);
