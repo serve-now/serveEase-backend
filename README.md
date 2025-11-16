@@ -8,19 +8,15 @@
 > - ID : wjdwwidz<br>
 > - PW : qwer1234!!
 
-## 개발 
-기간 : 2025.09 ~ 2025.11
-- 이정혜 : 기획, 백엔드
-
 
 ## 기술 스택
 ### Backend
-|  | 스택 |
-| --- | --- |
-| Language | `Java 17` |
-| Framework | `Spring Boot 3.5`, `Spring Web`, `Spring Data JPA`, `Spring Security` |
-| DB | `MariaDB (Amazon RDS)` |
-| Infra | `AWS EC2`, `VPC Security Group`, `NGINX Reverse Proxy`, `Systemd` |
+|  | 스택                                                                         |
+| --- |----------------------------------------------------------------------------|
+| Language | `Java 17`                                                                  |
+| Framework | `Spring Boot 3.5`, `Spring Web`, `Spring Data JPA`, `Spring Security`      |
+| DB | `MariaDB (Amazon RDS)`                                                     |
+| Infra | `RabbitMQ`, `Docker`, `AWS EC2`, `NGINX Reverse Proxy` |
 
 
 
@@ -33,6 +29,10 @@ Swagger 를 사용한 명세<br>
 <img width="5196" height="1440" alt="serveasedb@rds amazonaws" src="https://github.com/user-attachments/assets/91992545-8d72-4352-a32f-ec8eff752841" />
 
 ## 인프라 구조
+<div align="center">
+  <img src="https://github-production-user-asset-6210df.s3.amazonaws.com/88189246/514915791-755ca709-568e-4a62-a752-ced838d3bfee.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20251116%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20251116T200751Z&X-Amz-Expires=300&X-Amz-Signature=7f8b661eb769aa007932d052f6b2cd215a67234efcc53ebf78bcae4415b950a0&X-Amz-SignedHeaders=host" />
+</div>
+
 
 
 ## 상세 설명
@@ -49,14 +49,10 @@ Swagger 를 사용한 명세<br>
 ### 주문
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/6cf89bd5-d6ea-428f-b9a4-6443b624416e" width="49%" />
   <img src="https://github.com/user-attachments/assets/e0932b34-5c8e-4a59-a335-4501ded6118a" width="49%"/>
-</div>
-
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/c94787cd-50c8-4384-ab5c-2e4d9fa33d4c" width="49%" />
   <img src="https://github.com/user-attachments/assets/d51bbbf5-df37-4d8e-86bb-d18c15fa370e" width="49%" />
 </div>
+
 
 
 
@@ -80,7 +76,7 @@ Swagger 를 사용한 명세<br>
 
 
 
-분할 결제 
+### 분할 결제 
 <div align="center">
   <img src="https://github.com/user-attachments/assets/d05fdf1e-40b5-4c8f-af94-d7f71fffe75e" width="49%" />
   <img src="https://github.com/user-attachments/assets/b4fea24d-dc10-403d-8765-1e3df0d0910e" width="49%" />
