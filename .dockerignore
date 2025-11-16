@@ -1,6 +1,5 @@
 .git
 .gitignore
-build
 docs
 node_modules
 *.iml
