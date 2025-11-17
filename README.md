@@ -166,8 +166,8 @@ Swagger 를 사용한 명세<br>
 - 취소된 결제건은 실 결제액을 되돌린 후 `취소` 상태로 표시되며 매출/정산 지표가 즉시 조정됩니다.
 
 <div align="center" style="display: flex; gap: 6px;">
-  <img width="1770" height="886" alt="image" src="https://github.com/user-attachments/assets/623b33c3-c0ce-4408-a504-7d771dd65483" style="width: 49%; height: 300px; object-fit: cover;" />
-  <img width="1526" height="925" alt="image" src="https://github.com/user-attachments/assets/3973fa52-554f-441f-8e0e-bd5543f38835" style="width: 49%; height: 300px; object-fit: cover;" />
+  <img src="https://github.com/user-attachments/assets/623b33c3-c0ce-4408-a504-7d771dd65483" style="width: 49%; height: 235px; object-fit: cover;" />
+  <img src="https://github.com/user-attachments/assets/3973fa52-554f-441f-8e0e-bd5543f38835" style="width: 49%; height: 235px; object-fit: cover;" />
 </div><br>
 
 
