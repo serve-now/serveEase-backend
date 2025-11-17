@@ -44,11 +44,11 @@ Swagger 를 사용한 명세<br>
 <div align="center" style="display: flex; gap: 6px;">
   <img 
     src="https://github.com/user-attachments/assets/b9bee115-2d1e-41e7-bb9b-0a4f874fa85e"
-    style="width: 49%; height: 240px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
   <img 
     src="https://github.com/user-attachments/assets/186e11c0-9886-4565-b94a-cf44d4691022"
-    style="width: 49%; height: 240px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
 </div>
 <br>
@@ -60,11 +60,11 @@ Swagger 를 사용한 명세<br>
 <div align="center" style="display: flex; gap: 6px;">
   <img 
     src="https://github.com/user-attachments/assets/a8c78425-bf4b-4d2b-adee-80dd0a14a6cd"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
   <img 
     src="https://github.com/user-attachments/assets/dd335fd4-5c4b-41ac-8c80-cafd27c65c37" 
-    style="width: 49%; height: 300px; object-fit: cover;" />
+    style="width: 49%; height: 235px; object-fit: cover;" />
 </div>
 <br>
 
@@ -78,11 +78,11 @@ Swagger 를 사용한 명세<br>
 <div align="center" style="display: flex; gap: 6px;">
   <img 
     src="https://github.com/user-attachments/assets/e292c574-1517-4351-8e35-750f536440ec"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
   <img 
     src="https://github.com/user-attachments/assets/816b6272-e9f8-46b8-8818-45151c8ff6bc"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
 </div>
 <br>
@@ -97,11 +97,11 @@ Swagger 를 사용한 명세<br>
 <div align="center" style="display: flex; gap: 6px;">
   <img 
     src="https://github.com/user-attachments/assets/f3b77848-9480-4bc4-80df-77fc86e98a00"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
   <img 
     src="https://github.com/user-attachments/assets/1bea8ddd-d226-4585-823a-4f3cf48a0e99"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
 </div>
 
@@ -109,11 +109,11 @@ Swagger 를 사용한 명세<br>
 <div align="center" style="display: flex; gap: 6px;">
   <img 
     src="https://github.com/user-attachments/assets/d05fdf1e-40b5-4c8f-af94-d7f71fffe75e"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
   <img 
     src="https://github.com/user-attachments/assets/b4fea24d-dc10-403d-8765-1e3df0d0910e"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
 </div>
 <br>
@@ -134,11 +134,11 @@ Swagger 를 사용한 명세<br>
 <div align="center" style="display: flex; gap: 6px;">
   <img 
     src="https://github.com/user-attachments/assets/a1565a73-d8d4-45bb-843d-f6adf7ba3893"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
   <img 
     src="https://github.com/user-attachments/assets/b7e4e1eb-cb1c-4446-97d2-68e0e5906e4d"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
 </div><br>
 
@@ -152,11 +152,11 @@ Swagger 를 사용한 명세<br>
 <div align="center" style="display: flex; gap: 6px;">
   <img 
     src="https://github.com/user-attachments/assets/f9f3aae8-33b2-47ce-9926-0286f8aa772d"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
   <img 
     src="https://github.com/user-attachments/assets/e36c08af-0775-4454-ba5b-5869bf028cd2"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 235px; object-fit: cover;" 
   />
 </div><br>
 
