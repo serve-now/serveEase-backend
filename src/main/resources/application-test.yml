@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://localhost:3306/servease_test
+    username: servease
+    password: servease
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MariaDBDialect
+    show-sql: false
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+settlement:
+  broker:
+    exchange: servease.order.settlement.test.exchange
+    routing-key: servease.order.settlement.test
+    queue: servease.order.settlement.test.queue
+
+jwt:
+  secret: f12A9xQw7RkP3sT8mBnV4yUe6cH0jK5qZo1L9vD7xF3bT2nP4gH8rJ6uQ0sW3yD
+  expiration-ms: 3600000
+
+toss:
+  secret-key: thisistosssecretkey
