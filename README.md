@@ -44,11 +44,11 @@ Swagger 를 사용한 명세<br>
 <div align="center" style="display: flex; gap: 6px;">
   <img 
     src="https://github.com/user-attachments/assets/b9bee115-2d1e-41e7-bb9b-0a4f874fa85e"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 240px; object-fit: cover;" 
   />
   <img 
     src="https://github.com/user-attachments/assets/186e11c0-9886-4565-b94a-cf44d4691022"
-    style="width: 49%; height: 300px; object-fit: cover;" 
+    style="width: 49%; height: 240px; object-fit: cover;" 
   />
 </div>
 <br>
