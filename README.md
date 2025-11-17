@@ -149,9 +149,10 @@ Swagger 를 사용한 명세<br>
 - 결제 목록에서 내역 하나를 선택하면 상세 정보를 조회할 수 있습니다.
 - 목록에서 결제는 `부분결제`, `부분 취소`, `완료`, `취소` 상태 중 하나로 보여집니다.
 - 필터링 기능으로 빠른 검색을 제공합니다.
+
 <div align="center" style="display: flex; gap: 6px;">
   <img 
-    src="https://github.com/user-attachments/assets/f9f3aae8-33b2-47ce-9926-0286f8aa772d"
+    src="https://github.com/user-attachments/assets/46aafa42-1f3c-452d-808d-83569120f704"
     style="width: 49%; height: 235px; object-fit: cover;" 
   />
   <img 
