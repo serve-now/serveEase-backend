@@ -13,6 +13,7 @@ import com.servease.demo.repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -73,7 +74,7 @@ public class SalesAggregationService {
         salesDailyRepository.save(salesDaily);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordRefund(Long storeId, OffsetDateTime refundedAt, Integer refundAmount) {
         if (storeId == null || refundAmount == null || refundAmount <= 0) {
             log.warn("Skip daily refund aggregation. Invalid storeId/refundAmount storeId={}, refundAmount={}",
