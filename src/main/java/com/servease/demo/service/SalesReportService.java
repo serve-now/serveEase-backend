@@ -15,6 +15,8 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
+import java.time.temporal.WeekFields;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -52,8 +54,8 @@ public class SalesReportService {
 
         List<SalesReportResponse.SeriesItem> series = switch (periodType) {
             case DAILY -> mapDailySeries(from, to, dailyRecords);
-            case WEEKLY -> mapWeeklySeries(salesDailyFetchService.findWeeklyAggregates(store.getId(), from, to));
-            case MONTHLY -> mapMonthlySeries(salesDailyFetchService.findMonthlyAggregates(store.getId(), from, to));
+            case WEEKLY -> mapWeeklySeries(from, to, salesDailyFetchService.findWeeklyAggregates(store.getId(), from, to));
+            case MONTHLY -> mapMonthlySeries(from, to, salesDailyFetchService.findMonthlyAggregates(store.getId(), from, to));
         };
 
         return SalesReportResponse.builder()
@@ -116,41 +118,77 @@ public class SalesReportService {
                 .collect(Collectors.toList());
     }
 
-    private List<SalesReportResponse.SeriesItem> mapWeeklySeries(List<SalesDailyFetchService.SalesAggregationResult> aggregates) {
-        return aggregates.stream()
-                .map(aggregate -> {
-                    LocalDate weekStart = aggregate.periodStart()
-                            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-                    return SalesReportResponse.SeriesItem.builder()
-                        .date(weekStart)
-                        .month(YearMonth.from(weekStart))
-                        .monthValue(weekStart.getMonthValue())
-                        .week(aggregate.isoWeek())
-                        .netSales(aggregate.netSales())
-                        .orderCount(aggregate.orderCount())
-                        .canceledAmount(aggregate.canceledAmount())
-                        .averageOrderValue(calculateAverage(aggregate.netSales(), aggregate.orderCount()))
-                        .build();
-                })
-                .collect(Collectors.toList());
+    private List<SalesReportResponse.SeriesItem> mapWeeklySeries(LocalDate from,
+                                                                 LocalDate to,
+                                                                 List<SalesDailyFetchService.SalesAggregationResult> aggregates) {
+        Map<LocalDate, SalesDailyFetchService.SalesAggregationResult> aggregateMap = aggregates.stream()
+                .collect(Collectors.toMap(
+                        aggregate -> aggregate.periodStart().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)),
+                        aggregate -> aggregate,
+                        (existing, replacement) -> replacement));
+
+        LocalDate firstWeekStart = from.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate lastWeekStart = to.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+
+        List<SalesReportResponse.SeriesItem> series = new ArrayList<>();
+        for (LocalDate weekStart = firstWeekStart; !weekStart.isAfter(lastWeekStart); weekStart = weekStart.plusWeeks(1)) {
+            SalesDailyFetchService.SalesAggregationResult aggregate = aggregateMap.get(weekStart);
+
+            long netSales = aggregate != null ? aggregate.netSales() : 0L;
+            int orderCount = aggregate != null ? aggregate.orderCount() : 0;
+            long canceledAmount = aggregate != null ? aggregate.canceledAmount() : 0L;
+            int isoWeek = aggregate != null && aggregate.isoWeek() != null
+                    ? aggregate.isoWeek()
+                    : weekStart.get(WeekFields.ISO.weekOfWeekBasedYear());
+
+            series.add(SalesReportResponse.SeriesItem.builder()
+                    .date(weekStart)
+                    .month(YearMonth.from(weekStart))
+                    .monthValue(weekStart.getMonthValue())
+                    .week(isoWeek)
+                    .netSales(netSales)
+                    .orderCount(orderCount)
+                    .canceledAmount(canceledAmount)
+                    .averageOrderValue(calculateAverage(netSales, orderCount))
+                    .build());
+        }
+
+        return series;
     }
 
-    private List<SalesReportResponse.SeriesItem> mapMonthlySeries(List<SalesDailyFetchService.SalesAggregationResult> aggregates) {
-        return aggregates.stream()
-                .map(aggregate -> {
-                    YearMonth month = YearMonth.from(aggregate.periodStart());
-                    return SalesReportResponse.SeriesItem.builder()
-                            .date(month.atDay(1))
-                            .month(month)
-                            .monthValue(month.getMonthValue())
-                            .week(null)
-                            .netSales(aggregate.netSales())
-                            .orderCount(aggregate.orderCount())
-                            .canceledAmount(aggregate.canceledAmount())
-                            .averageOrderValue(calculateAverage(aggregate.netSales(), aggregate.orderCount()))
-                            .build();
-                })
-                .collect(Collectors.toList());
+    private List<SalesReportResponse.SeriesItem> mapMonthlySeries(LocalDate from,
+                                                                  LocalDate to,
+                                                                  List<SalesDailyFetchService.SalesAggregationResult> aggregates) {
+        Map<YearMonth, SalesDailyFetchService.SalesAggregationResult> aggregateMap = aggregates.stream()
+                .collect(Collectors.toMap(
+                        aggregate -> YearMonth.from(aggregate.periodStart()),
+                        aggregate -> aggregate,
+                        (existing, replacement) -> replacement));
+
+        YearMonth startMonth = YearMonth.from(from);
+        YearMonth endMonth = YearMonth.from(to);
+
+        List<SalesReportResponse.SeriesItem> series = new ArrayList<>();
+        for (YearMonth month = startMonth; !month.isAfter(endMonth); month = month.plusMonths(1)) {
+            SalesDailyFetchService.SalesAggregationResult aggregate = aggregateMap.get(month);
+
+            long netSales = aggregate != null ? aggregate.netSales() : 0L;
+            int orderCount = aggregate != null ? aggregate.orderCount() : 0;
+            long canceledAmount = aggregate != null ? aggregate.canceledAmount() : 0L;
+
+            series.add(SalesReportResponse.SeriesItem.builder()
+                    .date(month.atDay(1))
+                    .month(month)
+                    .monthValue(month.getMonthValue())
+                    .week(null)
+                    .netSales(netSales)
+                    .orderCount(orderCount)
+                    .canceledAmount(canceledAmount)
+                    .averageOrderValue(calculateAverage(netSales, orderCount))
+                    .build());
+        }
+
+        return series;
     }
 
     private BigDecimal calculateAverage(long netSales, int orders) {
