@@ -53,14 +53,9 @@ public class SalesAggregationService {
             return;
         }
 
-        LocalDateTime paidAt = order.getPaidAt();
-        if (paidAt == null) {
-            log.warn("Paid timestamp missing for completed order. Falling back to orderTime. orderId={}", orderId);
-            paidAt = order.getOrderTime();
-        }
-
         ZoneId storeZone = resolveStoreZone(store);
-        LocalDate salesDate = paidAt.atZone(storeZone).toLocalDate();
+        OffsetDateTime paidAt = resolvePaidAt(order, storeZone);
+        LocalDate salesDate = paidAt.atZoneSameInstant(storeZone).toLocalDate();
 
         long dailyNetSales = calculateDailyNetSales(order);
 
@@ -113,6 +108,20 @@ public class SalesAggregationService {
 
     private long calculateDailyNetSales(Order order) {
         return Optional.ofNullable(order.getPaidAmount()).map(Integer::longValue).orElse(0L);
+    }
+
+    private OffsetDateTime resolvePaidAt(Order order, ZoneId storeZone) {
+        OffsetDateTime paidAt = order.getPaidAt();
+        if (paidAt != null) {
+            return paidAt;
+        }
+
+        log.warn("Paid timestamp missing for completed order. Falling back to orderTime. orderId={}", order.getId());
+        LocalDateTime orderTime = order.getOrderTime();
+        if (orderTime == null) {
+            return OffsetDateTime.now(storeZone);
+        }
+        return orderTime.atZone(storeZone).toOffsetDateTime();
     }
 
     private ZoneId resolveStoreZone(Store store) {

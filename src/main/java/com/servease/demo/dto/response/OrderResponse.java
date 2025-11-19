@@ -5,6 +5,7 @@ import com.servease.demo.model.enums.OrderStatus;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,7 +25,7 @@ public class OrderResponse {
     private int remainingAmount;
     private boolean isPaid;
     private LocalDateTime orderTime;
-    private LocalDateTime paidAt;
+    private OffsetDateTime paidAt;
     private List<OrderItemResponse> orderItems;
 
     public static OrderResponse fromEntity(Order order) {

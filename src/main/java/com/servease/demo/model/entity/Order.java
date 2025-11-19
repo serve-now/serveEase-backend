@@ -10,6 +10,8 @@ import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -68,7 +70,7 @@ public class Order {
     private List<OrderItem> orderItems = new ArrayList<>();
 
     @Column(name = "paid_at")
-    private LocalDateTime paidAt;
+    private OffsetDateTime paidAt;
 
     public void addOrderItem(OrderItem orderItem) {
         this.orderItems.add(orderItem);
@@ -128,7 +130,7 @@ public class Order {
             this.isPaid = true;
             this.status = OrderStatus.COMPLETED;
             if (this.paidAt == null) {
-                this.paidAt = LocalDateTime.now();
+                this.paidAt = OffsetDateTime.now(ZoneOffset.UTC);
             }
             return true;
         }
@@ -204,7 +206,7 @@ public class Order {
                 this.status = OrderStatus.COMPLETED;
             }
             if (this.paidAt == null) {
-                this.paidAt = LocalDateTime.now();
+                this.paidAt = OffsetDateTime.now(ZoneOffset.UTC);
             }
         } else {
             this.isPaid = false;

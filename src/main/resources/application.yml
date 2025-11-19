@@ -12,6 +12,8 @@ spring:
       hibernate:
 #        format_sql: true
         dialect: org.hibernate.dialect.MariaDBDialect
+        jdbc:
+          time_zone: UTC
 
   rabbitmq:
     host: ${SPRING_RABBITMQ_HOST:localhost}
