@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  server:
+    image: ${SERVEEASE_SERVER_IMAGE:-jeonghye/serveease-server:latest}
+    container_name: serveease-server
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "${SERVEEASE_SERVER_PORT:-8080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:?SPRING_DATASOURCE_URL is required}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:?SPRING_DATASOURCE_USERNAME is required}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?SPRING_DATASOURCE_PASSWORD is required}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${SPRING_RABBITMQ_USERNAME:-guest}
+      SPRING_RABBITMQ_PASSWORD: ${SPRING_RABBITMQ_PASSWORD:-guest}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-3600000}
+      TOSS_SECRET_KEY: ${TOSS_SECRET_KEY:?TOSS_SECRET_KEY is required}
+      SETTLEMENT_BROKER_EXCHANGE: ${SETTLEMENT_BROKER_EXCHANGE:-servease.order.settlement.exchange}
+      SETTLEMENT_BROKER_ROUTING_KEY: ${SETTLEMENT_BROKER_ROUTING_KEY:-servease.order.settlement}
+      SETTLEMENT_BROKER_QUEUE: ${SETTLEMENT_BROKER_QUEUE:-servease.order.settlement.queue}
+    networks:
+      - serveease
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: serveease-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "${SERVEEASE_RABBITMQ_PORT:-5672}:5672"
+      - "${SERVEEASE_RABBITMQ_UI_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${SPRING_RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${SPRING_RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - serveease
+
+volumes:
+  rabbitmq-data:
+
+networks:
+  serveease:
+    driver: bridge
